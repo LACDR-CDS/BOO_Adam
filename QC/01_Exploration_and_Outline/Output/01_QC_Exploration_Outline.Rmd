@@ -84,7 +84,7 @@ Setting variables that you will use repeatedly in a script can save time if you 
 
 ```{r set-variables}
 # Variables set to make it easier to refer to files more easily. 
-root_dir <- "C:/Users/mmpse/Documents/GitHub/BOO-Adam/QC/"
+root_dir <- "C:/Users/mmpse/Documents/GitHub/BOO-Adam/QC/01_Exploration_and_Outline/"
 count_path <- "Input/countData.txt"
 metadata_path <- "Input/metaData.txt"
 
