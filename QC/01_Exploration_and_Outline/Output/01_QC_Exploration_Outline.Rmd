@@ -156,8 +156,7 @@ The `metaData` object contains information on the individual samples in the data
 # cell_type: cell type
 # compound_class: high or low tox
 # LOAEL_amt and LOAEL unit: LOAEL from animal studies and unit
-# PBPK_equivalent: concentration in microM that is needed for that chemical for that LOAEL? -> check with Lucy
-# PBPK_serum_level: ?
+# PBPK_equivalent: human equivalent in uM of PBPK_serum_level 
 metaData
 
 ```
