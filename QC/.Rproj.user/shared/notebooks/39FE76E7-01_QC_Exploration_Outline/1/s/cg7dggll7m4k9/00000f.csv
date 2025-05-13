@@ -1,0 +1,7 @@
+"0","# This function checks if all of the values of the sample_ID column in the metadata are exactly equal to the column names of the countdata. not using the adjusted countdata (with probes as row names) results in an error.
+all.equal(metaData$sample_ID, colnames(countData))
+"
+"1","[1]"
+"1"," TRUE"
+"1","
+"

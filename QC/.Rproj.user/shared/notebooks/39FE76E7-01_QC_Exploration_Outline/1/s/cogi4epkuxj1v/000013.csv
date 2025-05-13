@@ -1,0 +1,5 @@
+"0","# Probe names were first read as another column, but they are row names. So, the column was converted to row names."
+"0","countData <- countData %>% "
+"0","  column_to_rownames(var = ""Probe"") "
+"0",""
+"0","countData"
