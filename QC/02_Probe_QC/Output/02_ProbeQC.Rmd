@@ -166,8 +166,10 @@ manifest
 ```{r anno-check}
 #
 
-```
+setequal(rownames(countData), manifest$probe_name_old)
 
+```
+The command returns TRUE, which means that there is annotation information for all of the probes in countData.
 ***
 
 Sometimes, the probe sequence could no longer be aligned to a specific gene in the reference genome. In this instance, the `gene_symbol` column will be NA.
@@ -176,9 +178,11 @@ Sometimes, the probe sequence could no longer be aligned to a specific gene in t
 
 ```{r not-aligned}
 #
+NA_gene_symbol<- sum(is.na(manifest$gene_symbol))
 
+NA_gene_symbol
 ```
-
+603 values in the gene_symbol column are NA. These probes should be omitted from the countdata, as they do not refer to any gene and therefore do not provide any useful information.
 ***
 
 **Exercise 9: How many probes have had their annotation updated by the manifest?**
@@ -193,8 +197,11 @@ Sometimes, the probe sequence could no longer be aligned to a specific gene in t
 ```{r update-anno}
 #
 
-```
+manifest %>%
+  count(gene_symbol == gene_symbol_old)
 
+```
+There are 608 probes that have had their annotation updated by the manifest.
 ***
 
 **Exercise 10: Create `flag_realignment`, a new column in `probeManifest` which describes whether a probe should be removed, renamed, or kept unchanged:**
@@ -207,7 +214,15 @@ Sometimes, the probe sequence could no longer be aligned to a specific gene in t
 </details>
 
 ```{r flag-realign}
-#
+# This line gives an error when run again, as the column has already been added.
+manifest %>%
+  add_column(flag_realignment = NA)
+
+manifest_new <- manifest %>%
+  mutate(flag_realignment =  
+    case_when(gene_symbol_old == gene_symbol ~ "unchanged", 
+              gene_symbol_old != gene_symbol ~ "renamed", 
+              is.na(gene_symbol) ~ "removed"))
 
 ```
 
