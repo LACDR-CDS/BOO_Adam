@@ -117,7 +117,7 @@ For the probe QC, we will use the count data, metadata, and probe manifest.
 # count data, metadata and probe manifest are loaded.
 load(paste0(root_dir, count_path))
 load(paste0(root_dir, metadata_path))
-read_xlsx(paste0(root_dir, manifest_path))
+manifest <- read_xlsx(paste0(root_dir, manifest_path))
 ```
 
 ***
@@ -214,10 +214,11 @@ There are 608 probes that have had their annotation updated by the manifest.
 </details>
 
 ```{r flag-realign}
-# This line gives an error when run again, as the column has already been added.
+# Adding an empty column called flag_realignment
 manifest %>%
   add_column(flag_realignment = NA)
 
+# flag_realignment column now describes whether a probe should be removed, renamed or kept unchanged.
 manifest_new <- manifest %>%
   mutate(flag_realignment =  
     case_when(gene_symbol_old == gene_symbol ~ "unchanged", 
@@ -233,8 +234,8 @@ If probes could not be aligned, they should be removed from the `countData`.
 **Exercise 11: Subset `countData` to keep only the probes with correct annotations.**
 
 ```{r subset-realign}
-#
-
+# subsetted countData to only show the probes which do not have the tag "removed" in the flag_realignment column of manifest_new
+countData <- subset(countData, row.names(countData) %in% manifest_new$probe_name_old & manifest_new$flag_realignment != "removed")
 ```
 
 ***
@@ -251,8 +252,9 @@ As well as removing probes that could not be annotated, we also want to update t
 </details>
 
 ```{r probe-name}
-#
-
+# The mutate verb adds a probe_name column. The new probe names are gene_symbol and probe_ID, separated by an underscore.
+manifest_newprobes <- manifest_new %>%
+  mutate(probe_name = paste(gene_symbol, probe_ID, sep = "_"))
 ```
 
 ***
@@ -262,10 +264,12 @@ It is good practice to check the dimensions of objects when making such adjustme
 **Exercise 13: Check the dimensions of the objects in your environments to ensure nothing went wrong:**
 
 ```{r dim-check}
-#
-
+# checking dimensions of several objects 
+dim(manifest_new)
+dim(manifest_newprobes)
+dim(countData)
 ```
-
+The dimensions of all objects are what they should be: manifest_newprobes has a column more than manifest_new, and the right number of probes have been removed from the countData.
 ***
 
 # Normalization
@@ -278,7 +282,7 @@ Counts Per Million (CPM) normalization is a method that accounts for differences
 
 ```{r cpm-norm}
 #
-
+cpmData <- 
 ```
 
 ***
