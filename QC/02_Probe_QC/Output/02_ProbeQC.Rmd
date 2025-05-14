@@ -67,6 +67,8 @@ library(readxl)
 library(tidyverse)
 library(dplyr)
 library(sessioninfo)
+library(edgeR)
+
 ```
 
 ***
@@ -96,6 +98,10 @@ manifest_path <- "Input/Probe_Manifest.xlsx"
 
 # count_store, cpm_store, metadata_store, and probedata_store will be set later on, as I have nothing to set them with yet.
 
+count_store <- "Output/countData.Rdata"
+cpm_store <- "Output/cpmData.Rdata"
+metadata_store <- "Output/metaData.Rdata"
+probedata_store <- "Output/probeManifest.Rdata"
 ```
 
 ***
@@ -281,8 +287,8 @@ Counts Per Million (CPM) normalization is a method that accounts for differences
 **Exercise 14: Calculate CPM values for our data and store them in a `cpmData` object:**
 
 ```{r cpm-norm}
-#
-cpmData <- 
+# using the cpm function from the edgeR package to calculate counts per million
+cpmData <-  cpm(count_new)
 ```
 
 ***
