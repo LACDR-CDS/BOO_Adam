@@ -40,8 +40,8 @@ As before, we perform several setup steps at the start of the script to ensure o
 
 
 ```{r clean}
-# The environment has been cleaned.
-ls()
+# The rm function clears the environment from all objects. 
+rm(list=ls())
 ```
 
 ***
@@ -62,12 +62,11 @@ Here, we introduce a second package:
 </details>
 
 ```{r load-packages, warning=F, message=F}
-# Loading the needed packages 
+# Loading the needed packages (loaded more than specified, because more packages were needed)
 library(readxl)
 library(tidyverse)
 library(dplyr)
 library(sessioninfo)
-library(edgeR)
 library(ggplot2)
 
 ```
@@ -97,7 +96,7 @@ count_path <- "Input/countData.Rdata"
 metadata_path <- "Input/metaData.Rdata"
 manifest_path <- "Input/Probe_Manifest.xlsx"
 
-# count_store, cpm_store, metadata_store, and probedata_store will be set later on, as I have nothing to set them with yet.
+# Setting the paths to the place where future objects will be saved
 
 count_store <- "Output/countData.Rdata"
 cpm_store <- "Output/cpmData.Rdata"
@@ -125,6 +124,9 @@ For the probe QC, we will use the count data, metadata, and probe manifest.
 load(paste0(root_dir, count_path))
 load(paste0(root_dir, metadata_path))
 manifest <- read_xlsx(paste0(root_dir, manifest_path))
+
+# original count data is stored for potential use later on
+countData_original <- countData
 ```
 
 ***
@@ -154,15 +156,15 @@ The manifest provided during this project contains updated information about the
 **Exercise 6: Describe the columns in the probe manifest**
 
 ```{r manifest-inspect}
-# probe_name_old: probe name. why old?
+# probe_name_old: probe name from before update
 # probe_ID: probe identificator
 # probe_sequence: DNA sequence of the probe
-# probe_coord: ?
+# probe_coord: location on the genome where the probe is matched to
 # gene_symbol: gene the probe belongs to
 # entrez_id, ensembl_id, hgnc_id: several identificators for the gene
 # gene_symbol_old, entrez_id_old: gene symbol and entrez id from before update
 # percentage_match: percentage with which the probe matches to the gene sequence
-manifest
+str(manifest)
 
 ```
 
@@ -202,7 +204,7 @@ NA_gene_symbol
 </details>
 
 ```{r update-anno}
-#
+# Counting the amount of genes that still have the same symbol as before the update
 
 manifest %>%
   count(gene_symbol == gene_symbol_old)
@@ -226,11 +228,17 @@ manifest %>%
   add_column(flag_realignment = NA)
 
 # flag_realignment column now describes whether a probe should be removed, renamed or kept unchanged.
-manifest_new <- manifest %>%
+manifest <- manifest %>%
   mutate(flag_realignment =  
+           # when the new gene symbol is equal to the old one, write "unchanged"
     case_when(gene_symbol_old == gene_symbol ~ "unchanged", 
+              # when the new gene symbol is not equal to the old one, write "renamed"
               gene_symbol_old != gene_symbol ~ "renamed", 
+              # when the new gene symbol is NA, write "removed"
               is.na(gene_symbol) ~ "removed"))
+
+# checking if the flag realignment went well. If the realignment went well, this should say: removed: 603, renamed: 608, unchanged: 21322, NA: 0
+table(manifest$flag_realignment, useNA = "always")
 
 ```
 
@@ -242,7 +250,10 @@ If probes could not be aligned, they should be removed from the `countData`.
 
 ```{r subset-realign}
 # subsetted countData to only show the probes which do not have the tag "removed" in the flag_realignment column of manifest_new
-countData <- subset(countData, row.names(countData) %in% manifest_new$probe_name_old & manifest_new$flag_realignment != "removed")
+countData <- subset(countData, row.names(countData) %in% manifest$probe_name_old & manifest$flag_realignment != "removed")
+
+
+test <- subset(countData_original, row.names(countData_original) %in% manifest$probe_name_old & manifest$flag_realignment != "removed")
 ```
 
 ***
@@ -260,8 +271,18 @@ As well as removing probes that could not be annotated, we also want to update t
 
 ```{r probe-name}
 # The mutate verb adds a probe_name column. The new probe names are gene_symbol and probe_ID, separated by an underscore.
-manifest_newprobes <- manifest_new %>%
+manifest <- manifest %>%
   mutate(probe_name = paste(gene_symbol, probe_ID, sep = "_"))
+
+countData <- countData %>%
+  # turning the row names (probes) back into a column
+  # rownames_to_column(var = "probe_name_old") %>% 
+  #
+  left_join(y = manifest, by= "probe_name_old") %>%
+  select(probe_name_old, all_of(metaData$sample_ID)) %>%
+  column_to_rownames(var="probe_name_old")
+
+isTRUE(test == countData)
 ```
 
 ***
@@ -342,7 +363,8 @@ Although these highly expressed genes are interesting and informative, there are
 
 ```{r cpm-plot}
 #
-
+ggplot(manifest_removedprobes, aes(x = log2(average_cpm + 1))) + 
+  geom_histogram()
 
 # arranging the probe manifest from lowest to highest gene expression
 lowest_expressed_genes <- manifest_removedprobes %>%
@@ -354,7 +376,9 @@ lowest_expressed_genes
 
 **Exercise 17: Why did you use a log2 transformation here and why was it necessary to add 1 to the CPM values?**
 
-The log2 transformation is done to improve the normal distribution.
+The log2 transformation is done to improve the normal distribution. Normally, gene expression is skewed because expression can not go below 0.
+
+Add 1 because: then all values are included, to not take log of 0.
 
 ***
 
