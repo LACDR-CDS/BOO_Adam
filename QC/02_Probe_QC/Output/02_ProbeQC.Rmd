@@ -68,6 +68,7 @@ library(tidyverse)
 library(dplyr)
 library(sessioninfo)
 library(edgeR)
+library(ggplot2)
 
 ```
 
@@ -309,10 +310,21 @@ By inspecting the most highly expressed genes in a dataset, you can build confid
 </details>
 
 ```{r cpm-summarize}
-#
+# First removed the unassigned probes from the manifest, so no error would occur because of the removed probes in the countdata. 
+manifest_removedprobes <- subset(manifest_newprobes, row.names(countData) %in% manifest_newprobes$probe_name_old & manifest_newprobes$flag_realignment != "removed")
 
+# created a column for the total cpm per probe and the mean cpm per probe
+manifest_removedprobes <- manifest_removedprobes %>%
+  mutate(total_cpm = rowSums(cpmData), 
+         average_cpm = rowMeans(cpmData))
+
+# showing the probes in descending order of expression level, so the highest expressed probe is at the top.
+highest_expressed_probes <- manifest_removedprobes %>%
+  arrange(desc(average_cpm))
+highest_expressed_probes
 ```
 
+Some of the highest expressed genes: SLC4A9 codes for anion transport, which is necessary for normal cellular functions. F11 codes for a coagulation factor. ABCC4 encodes a transporter protein. It makes biological sense for these genes to be highly expressed; transport is always needed inside a cell. The coagulation factor is probably expressed more highly because of the unnatural environment the cell is in.
 ***
 
 ## Lowly expressed genes
@@ -331,13 +343,18 @@ Although these highly expressed genes are interesting and informative, there are
 ```{r cpm-plot}
 #
 
+
+# arranging the probe manifest from lowest to highest gene expression
+lowest_expressed_genes <- manifest_removedprobes %>%
+  arrange(average_cpm)
+lowest_expressed_genes
 ```
 
 ***
 
 **Exercise 17: Why did you use a log2 transformation here and why was it necessary to add 1 to the CPM values?**
 
-
+The log2 transformation is done to improve the normal distribution.
 
 ***
 
