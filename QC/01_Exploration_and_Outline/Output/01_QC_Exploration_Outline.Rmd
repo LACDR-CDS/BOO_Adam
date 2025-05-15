@@ -48,7 +48,7 @@ It is good practice to clean your environment at the start of every script. That
 
 ```{r clean}
 # There are currently no objects in the environment.
-ls()
+rm(list = ls())
 
 ```
 
@@ -379,8 +379,7 @@ Printing `session_info()` at the bottom of your scripts ensures your work is rep
 
 ```{r session-info}
 # 
-library(sessioninfo)
-session_info()
+devtools::session_info()
 ```
 
 ***
