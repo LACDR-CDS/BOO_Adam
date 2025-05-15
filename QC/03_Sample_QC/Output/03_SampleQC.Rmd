@@ -1,9 +1,9 @@
 ---
-title: "BOO 2025 - Example Analysis"
-subtitle: "Script 3: Sample QC - Answers"
+title: "BOO 2025"
+subtitle: "Script 3: Sample QC"
 date: "`r Sys.Date()`" 
 author: 
-  Adam Seuren
+  Student name
 output:
   html_document:
     code_download: true
@@ -32,7 +32,8 @@ As before, we perform several setup steps at the start of the script to ensure o
 **Exercise 1: Download the R markdown template and clean your environment:**
 
 ```{r clean}
-rm(list=ls())
+# 
+
 ```
 
 ***
@@ -54,21 +55,8 @@ rm(list=ls())
 * `corr_threshold` - required correlation between replicates (0.9)
 
 ```{r set-variables}
-root_dir <- "/data/sinkelj1/BOO/Group_F/" 
+#
 
-count_path <- "countData.Rdata" 
-cpm_path <- "cpmData.Rdata" 
-metadata_path <- "metaData.Rdata"
-
-count_store <- "countData.Rdata"
-cpm_store <- "cpmData.Rdata"
-metadata_store <- "metaData.Rdata" 
-
-# Set count threshold to 600,000
-count_threshold <- 6E5
-
-# Set correlation threshold to 0.9
-corr_threshold <- 0.9 
 ```
 
 ***
@@ -82,8 +70,8 @@ Here, we load `tidyverse` and also a new package:
 **Exercise 3: Load `tidyverse` and `ggrepel` into your environment:**
 
 ```{r load-packages, warning=F, message=F}
-library(tidyverse)
-library(ggrepel)
+#
+
 ```
 
 ***
@@ -100,9 +88,8 @@ library(ggrepel)
 </details>
 
 ```{r load-data, warning=FALSE, message=FALSE}
-load(paste0(root_dir, count_path))
-load(paste0(root_dir, cpm_path))
-load(paste0(root_dir, metadata_path))
+#
+
 ```
 
 ***
@@ -116,7 +103,8 @@ Before applying any filters, it is good to perform some checks.
 **Exercise 5: Check that the column names of `countData` match the `sample_ID` order in `metaData`:**
 
 ```{r order-check}
-table(metaData$sample_ID == colnames(countData))
+#
+
 ```
 
 ***
@@ -126,15 +114,9 @@ table(metaData$sample_ID == colnames(countData))
 **Exercise 6: Now that we have removed unreliable and lowly expressed probes from `countData`, recalculate and save a new `lib_size` in the metadata:**
 
 ```{r calculate-lib}
-summary(metaData$lib_size)
+#
 
-# Recalculate library size for each sample
-metaData$lib_size <- colSums(countData)
-
-summary(metaData$lib_size)
 ```
-
-As expected, the library sizes are comparable (as most removed probes were lowly expressed), but slightly smaller than before.
 
 ***
 
@@ -143,21 +125,9 @@ As expected, the library sizes are comparable (as most removed probes were lowly
 **Exercise 7: Make a histogram of `lib_size`. What range of values does this variable take and is this reasonable for a TempO-Seq experiment?**
 
 ```{r lib-histogram}
-# Summarize library size variable
-summary(metaData$lib_size)
+#
 
-metaData %>% 
-  # Create a histogram of library size
-  ggplot(aes(x = lib_size)) +
-  geom_histogram(fill = "lightblue", color = "black", bins = 30) +
-  ggtitle("Histogram of library size values") + 
-  xlab("Library size") +
-  theme_bw()
 ```
-
-The library size represents how many sequencing reads (or transcript fragments) in total were successfully generated and aligned to the TempO-Seq probe panel for that sample, irrespective of which gene they are assigned to. 
-
-Library size in these samples ranges from 604,590 to 5,665,921 reads. An average sample has just over 3M reads. This is definitely reasonable for a TempO-Seq experiment, as the assay is highly targeted and efficient.
 
 ***
 
@@ -165,18 +135,12 @@ Library size in these samples ranges from 604,590 to 5,665,921 reads. An average
 
 Samples whose library size is below 20% of the targeted sequencing depth (`corr_threshold`; 600,000) should be flagged as having low reads.
 
-**Exercise 8: Create a flag in `metaData` describing if samples have low reads not:**
+**Exercise 8: Create a flag in `metaData` describing if samples have low reads or not:**
 
 ```{r lib-flag}
-metaData <- metaData %>% 
-  # If library size is under threshold set TRUE, otherwise FALSE
-  mutate(flagLowReads = ifelse(lib_size <= count_threshold, T, F))
+#
 
-# Tabulate the low read flag
-table(metaData$flagLowReads)
 ```
-
-In this case, all samples have sufficient reads and are kept in the data set. 
 
 ***
 
@@ -194,25 +158,9 @@ It is good to visualize the library size for each sample, grouped by compound ID
 </details>
 
 ```{r lib-boxplot}
-metaData %>%   
-  # Ensure that concentration ID is treated as a factor
-  mutate(conc_ID = factor(conc_ID)) %>%   
-  # Plot compounds on the x axis and library size on the y axis
-  ggplot(aes(x=compound_ID, y=lib_size)) + 
-  # Create boxplots of the library size distributions
-  geom_boxplot(aes(color=conc_ID), width=0.8) +  
-  # Create a dashed line to represent the library size threshold
-  geom_hline(aes(yintercept=count_threshold), color="grey5", linetype="dashed") +
-  # Label any values below the threshold
-  geom_text_repel(aes(x = compound_ID, y = lib_size, color = conc_ID),   
-                   label=ifelse(metaData$lib_size < count_threshold, 
-                                metaData$rep, "")) +
-  # Set axis labels and title
-  xlab("") + ylab("Library size") + ggtitle("Library size distributions") +    
-  theme_bw()                                  
-```
+#
 
-The highest 1,4-Benzenediol concentration shows reduced library sizes, with one sample nearing the threshold. While all samples passed the filter, the lower library sizes may reflect cytotoxicity, as dying cells yield less RNA and fewer viable cells are available for extraction under cytotoxic conditions.
+```
 
 ***
 
@@ -225,8 +173,8 @@ The replicate correlation filter aims to remove any outlying replicates, with ma
 **Exercise 10: Calculate and store the log2(CPM + 1) values in a `logcpmData` object:**
 
 ```{r log2cpm}
-# Calculate log2(CPM + 1)
-logcpmData <- log2(cpmData + 1)
+#
+
 ```
 
 ***
@@ -245,45 +193,8 @@ In order to calculate pairwise correlations, each sample needs to be compared to
 </details>
 
 ```{r pairwise-corr}
-# Initialize the replicate filter output as a data frame
-replicateFilterOutput <- data.frame()
+#
 
-# For each mean ID (experimental condition)
-for(i in unique(metaData$mean_ID)){
-  # Subset the meta data to keep only samples from this experiment
-  metaDataReps <- metaData %>% 
-    filter(mean_ID == i)
-  
-  # Subset the log2 CPM values to keep only these samples
-  cpmDataReps <- logcpmData[, metaDataReps$sample_ID] 
-  
-  # Loop through each column in the CPM data  
-  for(j in 1:ncol(cpmDataReps)){
-    # In a pairwise fashion
-    for(k in 1:ncol(cpmDataReps)){
-      # Save the position in the loops that you are in
-      sample_A <- colnames(cpmDataReps)[j]
-      sample_B <- colnames(cpmDataReps)[k]
-      
-      # Don't calculate pairwise correlations between identical samples (since it will be 1)  
-      if(sample_A != sample_B){
-        # Calculate pairwise correlation values
-        r2 <- cor(cpmDataReps[,j], cpmDataReps[,k])
-        
-        # Update the filter output data frame
-        replicateFilterOutput <- rbind(
-          replicateFilterOutput, 
-          data.frame(mean_ID = i, 
-                     sample_A = sample_A,
-                     sample_B = sample_B,
-                     r2 = r2))
-      }
-    }
-  }
-}
-
-# Inspect output
-head(replicateFilterOutput)
 ```
 
 ***
@@ -295,22 +206,8 @@ Each sample is judged by the best pairwise correlation it can achieve. If this i
 **Exercise 12: Calculate the `max_r2` for each sample and add it to the `replicateFilterOutput`:**
 
 ```{r max-r2}
-replicateFilterOutput <- replicateFilterOutput %>% 
-  # Separate sample name into compound and concentration using the underscore
-  separate(sample_A, 
-           into = c("Compound", "Conc_ID", NA, NA), 
-           remove = F, 
-           sep = "_") %>% 
-  # If the compound is DMSO then keep only the first 5 letters (else we get DMSOHigh1 and DMSOHigh2 :D)
-  mutate(Compound = ifelse(grepl("DMSO", Compound), substr(Compound,1,5), Compound)) %>% 
-  # Group by sample
-  group_by(sample_A) %>%
-  # Save the maximum pairwise correlation for that sample
-  mutate(max_r2 = max(r2, na.rm = T)) %>% 
-  ungroup()
+#
 
-# Inspect output
-summary(replicateFilterOutput$max_r2)
 ```
 
 ***
@@ -320,30 +217,9 @@ summary(replicateFilterOutput$max_r2)
 **Exercise 13: Visualize the pairwise replicate correlations for each experimental conditions. Describe what you observe:**
 
 ```{r corr-boxplot}
-replicateFilterOutput %>% 
-  # Plot the sample ID against the pairwise correlation
-  ggplot(aes(x = sample_A, y = r2)) +
-  # Draw a boxplot of the pairwise correlation distribution
-  geom_boxplot(color = "grey80") +
-  # With points for the actual values
-  geom_point(color = "grey60", size = 0.5) +
-  # Highlight the maximum pairwise correlation for each sample
-  geom_point(aes(y = max_r2, color = Conc_ID), 
-             size = 1.5) +
-  # Draw a line for the filter threshold
-  geom_hline(aes(yintercept = corr_threshold), 
-             color = "grey60", linetype = "dashed") +
-  ylab("") + xlab("Sample ID") + ggtitle("Replicate correlations") +
-  theme_bw() +
-  # Do not print sample names
-  theme(axis.text.x = element_blank()) +
-  # Make a different plot for each compound, allowing the x-axis to change for different samples
-  facet_wrap(~Compound, scales='free_x', nrow=2)
+#
+
 ```
-
-There is one replicate close to the threshold for the lowest concentration of 1,4-Benzenediol. Additionally, the highest concentration where there were signs of cytotoxicity also has low replicate correlations overall. This experimental condition is unlikely to be suitable for downstream analysis.
-
-Looking at triethylene glycol and the DMSO controls, replicate correlation looks good and all samples can be kept in the data for analysis.
 
 ***
 
@@ -359,21 +235,8 @@ Looking at triethylene glycol and the DMSO controls, replicate correlation looks
 </details>
 
 ```{r corr-flag}
-# Make a data frame of sample IDs and max r2
-replicateFilterMerge <- replicateFilterOutput %>% 
-  select(sample_ID = sample_A, max_r2) %>% 
-  distinct()
+#
 
-# Merge with meta data
-metaData <- left_join(metaData, replicateFilterMerge, 
-                      by = "sample_ID") %>% 
-  mutate(flagLowCorr = ifelse(max_r2 <= corr_threshold, T, F))
-
-table(metaData$flagLowCorr)
-
-# Inspect the flagged samples
-metaData %>% 
-  filter(flagLowCorr)
 ```
 
 ***
@@ -386,37 +249,9 @@ If you would like a bit more of a challenge, here are a few extra questions rela
 
 **Exercise 14: What are the benefits of a sample having a higher library size and does this benefit apply to some genes more than others?**
 
-A higher library size means greater average read depth, increasing the number of reads mapped to each gene. This improves statistical power and precision when estimating expression differences, particularly for moderately to highly expressed genes. It also enhances our ability to detect lowly expressed genes.
-
-However, gene expression is highly skewed with some genes having thousands of reads and others only a few. Therefore, average depth (or total library size) alone doesn’t capture this variability. Examining the full distribution of read counts in a sample provides a more complete picture of sequencing depth and data quality:
-
 ```{r read-depth}
-# Look only at one sample and select the ID and library size
-metaData %>% 
-  filter(sample_ID == "CS1101_C1_P1_R1") %>% 
-  select(sample_ID, lib_size) %>% 
-  # Calculate the average read depth for that sample
-  mutate(read_depth = lib_size / nrow(countData),
-         log10read_depth = log10(read_depth))
+#
 
-countData %>% 
-  rownames_to_column(var="Probe") %>% 
-  # Calculate log10 (count + 1) values for this sample
-  mutate(CS1101_C1_P1_R1_log10 = log10(CS1101_C1_P1_R1 + 1)) %>% 
-  ggplot() +
-  # Plot a histogram
-  geom_histogram(aes(x = CS1101_C1_P1_R1_log10),
-                 fill = "lightblue", color = "black", bins = 30) +
-  # Draw a line at the average read depth (on a log10 scale)
-  geom_vline(aes(xintercept = 2.37), 
-             color='red', linetype='dashed') +
-  # Annotate the line with text
-  annotate("text", x=3.1, y=1000, color='red',
-           label="Average read depth: 233.1") +
-  # Set the title, labels, and theme
-  ggtitle("Distribution of counts across genes for one sample") +
-  ylab("") + xlab("log10(counts + 1)") +
-  theme_bw()
 ```
 
 ***
@@ -427,64 +262,14 @@ Instead of looking at pairwise correlations, another way of measuring how good a
 
 **Exercise 15: Calculate replicate correlation in this way and see if it alters the results of this filter. What is one benefit and downside of assessing replicate correlation in this manner?**
 
-First, we calculate the correlation between each sample and its experimental mean.
-
 ```{r mean-corr}
-# Initialize the replicate filter output as a data frame
-replicateFilterOutput <- data.frame()
+#
 
-# Loop through experimental conditions
-for(i in unique(metaData$mean_ID)){
-  # Subset meta data
-  metaDataReps <- metaData %>% filter(mean_ID == i)
-  
-  # Subset CPM data
-  cpmDataReps <- logcpmData[, metaDataReps$sample_ID] 
-    
-  # Calculate the mean CPM for each probe in this experiment
-  cpmDataReps$meanCPM = rowSums(cpmDataReps) / ncol(cpmDataReps)
-  
-  # Save the correlation between each sample and this average value
-  corReps <- as.data.frame(cor(cpmDataReps)) %>% 
-             select(repCor=meanCPM) %>% 
-             rownames_to_column(var="sample_ID") %>% 
-             filter(sample_ID != "meanCPM")
-  
-  # Update the output
-  replicateFilterOutput <- rbind(replicateFilterOutput, corReps)
-}
-
-# Inspect
-replicateFilterOutput
 ```
-
-Then we can plot the output
-
-```{r mean-plot}
-replicateFilterOutput %>% 
-  separate(sample_ID, 
-           sep = "_", 
-           into = c("Compound", "Conc_ID", "Plate", "Rep"), 
-           remove=F) %>% 
-  mutate(Conc_ID = factor(Conc_ID),
-         Compound = ifelse(grepl("DMSO", Compound), substr(Compound,1,5), Compound)) %>% 
-  ggplot(aes(x = Compound, y = repCor)) +
-  geom_boxplot(aes(color = Conc_ID), width = 0.8) +
-  geom_hline(aes(yintercept = corr_threshold), 
-             color = "grey50", linetype = "dashed") +
-  xlab("") + ylab("Correlation between replicates") +
-  theme_bw()
-```
-
-Although assessing replicate correlation in this way yields similar results with lower correlations for the top and bottom concentration of 1,4-Benzenediol, in this instance all replicates now pass the replicate correlation filter. This demonstrates the somewhat arbitrary nature of these thresholds in practice.
-
-A benefit of looking at correlation between each replicate and the mean is that there is a single value for each sample and no need to select a representative one (e.g. maximum pairwise correlation). However, the downside is that bad replicates can "drag down" the values of the fictitious average sample, especially for conditions where there are only a few replicates.
 
 ***
 
 # Save
-
-## Subset
 
 **Exercise 16: Remove samples that did not pass the sample QC steps from your data:**
 
@@ -496,18 +281,8 @@ A benefit of looking at correlation between each replicate and the mean is that 
 </details>
 
 ```{r any-flag}
-# Subset the metadata to keep only high quality samples
-metaData <- metaData %>% 
-  filter(!flagLowReads & !flagLowCorr)
+#
 
-# Subset the count and CPM data
-cpmData <- cpmData[ , metaData$sample_ID]
-countData <- countData[ , metaData$sample_ID]
-
-# Check dimensions
-dim(metaData)
-dim(countData)
-dim(cpmData)
 ```
 
 ***
@@ -517,10 +292,8 @@ dim(cpmData)
 **Exercise 17: Save the updated data:**
 
 ```{r save-metadata}
-# Save
-save(metaData, file=paste0(root_dir, metadata_store))
-save(cpmData, file=paste0(root_dir, cpm_store))
-save(countData, file=paste0(root_dir, count_store))
+#
+
 ```
 
 ***
@@ -530,8 +303,8 @@ save(countData, file=paste0(root_dir, count_store))
 **Exercise 18: Print your session info at the end of the script, knit the R markdown document, and push it to GitHub:**
 
 ```{r session-info}
-# Session info
-devtools::session_info()
+#
+
 ```
 
 ***
