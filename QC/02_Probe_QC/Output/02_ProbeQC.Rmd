@@ -1,6 +1,6 @@
 ---
-title: "BOO 2025 - Example Analysis"
-subtitle: "Script 2: Probe QC - Questions"
+title: "BOO 2025"
+subtitle: "Script 2: Probe QC"
 date: "`r Sys.Date()`" 
 author: 
   Adam Seuren

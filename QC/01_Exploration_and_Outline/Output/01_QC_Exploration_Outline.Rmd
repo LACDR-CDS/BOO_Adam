@@ -1,6 +1,6 @@
 ---
-title: "BOO 2025 - Example Analysis"
-subtitle: "Script 1: Data exploration - Questions"
+title: "BOO 2025"
+subtitle: "Script 1: Data exploration"
 date: "`r Sys.Date()`" 
 author: 
   Adam Seuren
