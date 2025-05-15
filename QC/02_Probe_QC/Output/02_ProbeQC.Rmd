@@ -253,7 +253,7 @@ If probes could not be aligned, they should be removed from the `countData`.
 countData <- subset(countData, row.names(countData) %in% manifest$probe_name_old & manifest$flag_realignment != "removed")
 
 
-test <- subset(countData_original, row.names(countData_original) %in% manifest$probe_name_old & manifest$flag_realignment != "removed")
+
 ```
 
 ***
@@ -276,13 +276,14 @@ manifest <- manifest %>%
 
 countData <- countData %>%
   # turning the row names (probes) back into a column
-  # rownames_to_column(var = "probe_name_old") %>% 
-  #
+   rownames_to_column(var = "probe_name_old") %>% 
+  # merging the countData with manifest, to the left of probe_name_old
   left_join(y = manifest, by= "probe_name_old") %>%
-  select(probe_name_old, all_of(metaData$sample_ID)) %>%
-  column_to_rownames(var="probe_name_old")
+  # selecting only the probe_name and sample_ID columns, these are the two columns of the manifest that will be used in the countData
+  select(probe_name, all_of(metaData$sample_ID)) %>%
+  # changing the column probe_name to rownames of the countData: probe_name_old has now been swapped for the new probe_name.
+  column_to_rownames(var="probe_name")
 
-isTRUE(test == countData)
 ```
 
 ***
@@ -292,12 +293,12 @@ It is good practice to check the dimensions of objects when making such adjustme
 **Exercise 13: Check the dimensions of the objects in your environments to ensure nothing went wrong:**
 
 ```{r dim-check}
-# checking dimensions of several objects 
-dim(manifest_new)
-dim(manifest_newprobes)
+# checking dimensions of the manifest (should be 22533/13 for manifest and 21930 (=22533-603) for countData, 66/29 for metaData) 
+dim(manifest)
 dim(countData)
+dim(metaData)
 ```
-The dimensions of all objects are what they should be: manifest_newprobes has a column more than manifest_new, and the right number of probes have been removed from the countData.
+
 ***
 
 # Normalization
@@ -309,8 +310,12 @@ Counts Per Million (CPM) normalization is a method that accounts for differences
 **Exercise 14: Calculate CPM values for our data and store them in a `cpmData` object:**
 
 ```{r cpm-norm}
-# using the cpm function from the edgeR package to calculate counts per million
-cpmData <-  cpm(count_new)
+# calculating the counts per million and putting them in a dataframe
+cpmData <- data.frame(
+  # the apply function is used to apply the calculation to the rows ("2") of the countData
+  apply(countData, 2, 
+        # cpm = (counts / sum of all counts in the row) * 1 million
+        function(x){x/sum(x)*1000000}))
 ```
 
 ***
@@ -331,21 +336,27 @@ By inspecting the most highly expressed genes in a dataset, you can build confid
 </details>
 
 ```{r cpm-summarize}
-# First removed the unassigned probes from the manifest, so no error would occur because of the removed probes in the countdata. 
-manifest_removedprobes <- subset(manifest_newprobes, row.names(countData) %in% manifest_newprobes$probe_name_old & manifest_newprobes$flag_realignment != "removed")
-
-# created a column for the total cpm per probe and the mean cpm per probe
-manifest_removedprobes <- manifest_removedprobes %>%
-  mutate(total_cpm = rowSums(cpmData), 
-         average_cpm = rowMeans(cpmData))
+# Create a data frame of the total CPM (is the sums of each row in cpmData, rounded to 3 decimals) for each probe
+manifest <- data.frame(total_cpm = round(rowSums(cpmData), 3)) %>% 
+  # Put the rownames from total_cpm into a column named probe_name
+  rownames_to_column(var="probe_name") %>%
+  # Calculate the average CPM across samples for each probe (= total cpm divided by the number of columns (ncol) of cpmData (each column in cpmData is a sample)). This is, again, rounded to 3 decimals. 
+  mutate(avg_cpm = round(total_cpm / ncol(cpmData), 3)) %>% 
+  # Add the avg_cpm and total_cpm column to manifest, to the right of probe_name
+  right_join(manifest, by="probe_name")
 
 # showing the probes in descending order of expression level, so the highest expressed probe is at the top.
-highest_expressed_probes <- manifest_removedprobes %>%
-  arrange(desc(average_cpm))
+highest_expressed_probes <- manifest %>%
+  arrange(desc(avg_cpm))
 highest_expressed_probes
 ```
 
-Some of the highest expressed genes: SLC4A9 codes for anion transport, which is necessary for normal cellular functions. F11 codes for a coagulation factor. ABCC4 encodes a transporter protein. It makes biological sense for these genes to be highly expressed; transport is always needed inside a cell. The coagulation factor is probably expressed more highly because of the unnatural environment the cell is in.
+HSPB1: encodes a heat shock protein, which is expressed in response to stress. This makes sense, as (some of the) cells have been treated with a toxic chemical.
+APOA1: encodes a plasma protein, is expressed more highly in the liver. 
+APOC3: encodes a metabolism protein, this makes biological sense as the liver plays a big role in metabolism.
+ALB: encodes albumin. This protein is highly expressed in the blood.
+ORM1: encodes a plasma protein that is mostly expressed in reaction to acute inflammation. This could be an adverse reaction to the toxic chemicals.
+
 ***
 
 ## Lowly expressed genes
@@ -363,31 +374,42 @@ Although these highly expressed genes are interesting and informative, there are
 
 ```{r cpm-plot}
 #
-ggplot(manifest_removedprobes, aes(x = log2(average_cpm + 1))) + 
-  geom_histogram()
+manifest %>%
+  # subsetting the manifest so the unassigned probes are not included
+  filter(flag_realignment != "removed") %>%
+  # mutating avg_cpm to log2(avg_cpm+1), so it can be plotted
+  mutate(log2avg_cpm = log2(avg_cpm+1)) %>% 
+  ggplot() +
+  # plotting log2avg_cpm as a histogram, with light blue filled bars and a binwidth of 0.2
+  geom_histogram(aes(x=log2avg_cpm), fill='lightblue', color='black', binwidth = 0.2) +
+  # creating a red, dashed vertical line at x = 1; this is the threshold for lowly expressed genes. 
+  geom_vline(aes(xintercept=1), color='red', linetype='dashed') +
+  # labelling the x-axis so that it is clear what the plot means
+  xlab('log2 of the average CPM (+1) per sample for each probe') +
+  # The theme makes the plot look cleaner.
+  theme_bw()
 
-# arranging the probe manifest from lowest to highest gene expression
-lowest_expressed_genes <- manifest_removedprobes %>%
-  arrange(average_cpm)
-lowest_expressed_genes
+
 ```
-
+The genes that are plotted on the left side of the red line can be considered lowly expressed.
 ***
 
 **Exercise 17: Why did you use a log2 transformation here and why was it necessary to add 1 to the CPM values?**
 
-The log2 transformation is done to improve the normal distribution. Normally, gene expression is skewed because expression can not go below 0.
+The log2 transformation is done to improve the normal distribution; normally, gene expression is skewed because expression can not go below 0.
 
-Add 1 because: then all values are included, to not take log of 0.
+It is necessary to add 1 to the CPM values, so that no log of 0 will be taken. This way, all values are included, as ggplot will otherwise remove them.
 
 ***
 
 **Exercise 18: How many probes have no expression measured in any of the samples?**
 
 ```{r no-expression}
-#
-
+# Probes with no expression have a total_cpm of 0. These are now filtered from the manifest.
+manifest %>%
+  filter(total_cpm == 0)
 ```
+406 probes have no measured expression.
 
 ***
 
@@ -399,8 +421,15 @@ We want to keep probes in our data if they are relevant for any of our experimen
 
 ```{r replicate-number}
 #
-
+metaData %>% 
+  group_by(mean_ID) %>% 
+  # summarize the number of reps for each condition.
+  #.groups = "drop" removes the grouping done by group_by, this prevents errors from happening later (if this dataframe would be used later on). 
+  summarize(n_reps = n(), .groups = "drop") %>% 
+  # make sure there are no duplicate conditions. 
+  distinct()
 ```
+There are 18 conditions in total. The treated conditions (12) all have 3 replicates, and the DMSO conditions (4) all have 6 replicates.
 
 ***
 
@@ -414,9 +443,44 @@ We want to keep probes in our data if they are relevant for any of our experimen
 </details>
 
 ```{r experiment-loop}
-#
+# Creating a vector named loop, containing the experimental conditions
+loop <- unique(metaData$mean_ID)
+loop
+```
+
+```{r}
+# Creating the dataframe relevanceFilter, which contains only the rownames of cpmdata
+relevanceFilter <- data.frame(probe_name = rownames(cpmData))
+
+# For each unique mean ID (= each unique condition)
+for(i in loop){
+  # Subset metadata to include only samples with that mean ID (so, for each loop, the samples of one unique condition are selected)
+  set <- metaData %>% 
+    filter(mean_ID == i)
+  
+  # Subset the CPM data to include only those samples (so you have the cpm data for all repetitions of the condition)
+  cpm.set <- cpmData[ , set$sample_ID]
+  
+  # Count the percentage of values for each probe that are above 1 (CPM above 1 is the threshold for relevance. The percentage values indicate the percentage of replicates in which the value for each probe is above 1)
+  df.set <- data.frame(round(100 * rowSums(cpm.set > 1) / ncol(cpm.set), 2)) %>% 
+    rownames_to_column(var = "probe_name")
+  
+  # Set the column name to the current mean ID
+  colnames(df.set) <- c("probe_name", i)
+  
+  # Merge with the relevance filter output thus far (so that all values will appear in the same dataframe)
+  relevanceFilter <- left_join(relevanceFilter, df.set, by="probe_name")
+}
+
+# Turn the probe name column back into row names
+relevanceFilter <- relevanceFilter %>% 
+  column_to_rownames(var="probe_name")
+
+# Show the first 6 rows of the output
+head(relevanceFilter)
 
 ```
+
 
 ***
 
@@ -430,7 +494,19 @@ We want to keep probes in our data if they are relevant for any of our experimen
 </details>
 
 ```{r count-relevant}
-#
+relevanceFilter <- relevanceFilter %>% 
+  # Create a variable counting the number of rows with a value above 66 -> a probe is relevant if it has a value of >1 in at least two thirds of the data (so at least 66% of the replications). 
+  mutate(n_relevant = rowSums(relevanceFilter >= 66)) %>% 
+  # Move this column to the first place (left) in the data frame
+  select(n_relevant, everything()) %>% 
+  # Convert row names to a new column called probe_name
+  rownames_to_column(var="probe_name")
+
+# Add the relevanceFilter to the manifest using this new probe_name column
+manifest <- left_join(manifest, relevanceFilter, by="probe_name")
+
+# Summarize the number of relevant experiments (minimum, 1st and 3rd quantile, median, mean, maximum) for each probe 
+summary(manifest$n_relevant)
 
 ```
 
@@ -443,28 +519,87 @@ We want to flag the lowly expressed probes in the manifest and remove them from 
 **Exercise 22: Flag any probes that do not pass the relevance filter for at least one experimental condition and remove them from `countData`:**
 
 ```{r flag-relevance}
-#
+# A probe is relevant if it passes the threshold (cpm >1 in at least 2/3 of the repetitions) for at least 1 experimental condition. TRUE indicates a relevant probe, FALSE indicates an irrelevant probe.
+manifest <- manifest %>% 
+  mutate(flag_relevant = ifelse(n_relevant >= 1, T, F))
 
+# Put the relevance into a table
+table(manifest$flag_relevant, useNA="always")
 ```
+There are 7248 irrelevant probes in the manifest.
 
+```{r}
+# Put the probes that pass the filter into a vector
+kept <- (manifest %>% 
+  filter(flag_relevant == T))$probe_name
+
+# Check the dimensions of the count data to make sure they are still correct (should be 21930/66)
+dim(countData)
+```
+```{r}
+# Subset the count data so that it contains only the relevant probes
+countData <- countData[kept, ]
+
+# Check dimensions again following the subset (number of rows should be equal to the number of relevant probes, which is 14646)
+dim(countData)
+```
+Now, countData only contains relevant probes, that are well-expressed in at least 2/3 of the repetitions of at least one of the conditions.
 ***
 
 **Exercise 23: Visualize and interpret the distribution of `n_relevant`:**
 
 ```{r relevant-plot}
-#
-
+# manifest is filtered so only assigned probes are used in the plot
+manifest %>% 
+  filter(flag_realignment != "Probe removed") %>% 
+  ggplot() +
+  # A histogram is made with the number of relevant probes on the x-axis.
+  geom_histogram(aes(x = n_relevant,
+                     # Bins for relevant and irrelevant probes will be filled with a different color
+                     fill = flag_relevant),
+                 color = "grey20",
+                 binwidth = 1) +
+  # setting axis labels and a figure title
+  xlab(paste0("Number of conditions where a probe reaches 1 CPM in at least 66% reps")) +
+  ylab("Number of probes") + 
+  ggtitle("Relevance distribution") + 
+  # theme makes the plot look cleaner
+  theme_bw() +
+  # Remove the legend
+  theme(legend.position = "none")
 ```
-
+The histogram has high bins on both outer ends of the plot. This means that probes are, most of the time, relevant in either all or none of the conditions.
+```{r}
+# filtering the manifest so it shows only the probes that are relevant in all of the conditions (where n_relevant is at its maximum level). NA values are removed.
+manifest %>% 
+  filter(n_relevant == max(n_relevant, na.rm=T))
+```
+11,112 probes are relevant in all of the samples. This is roughly half of the total amount of probes, and (as was also seen in the histogram), a large part of the total relevant probes.
 ***
 
 **Exercise 24: Check the distribution of log2(CPM + 1) values coloured by the relevant filter flag. Has the peak of lowly expressed genes been reduced?**
 
 ```{r dist-check}
-#
-
+manifest %>% 
+  # unaligned probes are filtered out
+  filter(flag_realignment != "Probe removed") %>% 
+  # add a column with the log2(cpm + 1) of the average cpm
+  mutate(log2avg_cpm = log2(avg_cpm + 1)) %>% 
+  ggplot() +
+  # create a histogram with the log2avg_cpm on the x-axis 
+  geom_histogram(aes(x = log2avg_cpm, 
+                     # bins are color-filled by relevance
+                     fill = flag_relevant), 
+                 color = "black", binwidth = 0.2) +
+  # label is added on the x-axis, plot title is added
+  xlab("log2 of the average CPM (+1) per sample for each probe") +
+  ggtitle("Distribution of log2 (CPM + 1) values colored by relevance") +
+  # the theme makes the plot look cleaner
+  theme_bw() +
+  # remove the legend from the plot
+  theme(legend.position='none')
 ```
-
+As can be seen from the color of the bins, the peak of lowly expressed genes has been removed by the relevance filter.
 ***
 
 # Gene-level data
@@ -483,17 +618,36 @@ Multiple probes from TempO-Seq may interrogate the same gene. Since all of our d
 </details>
 
 ```{r gene-level}
-#
+countData <- countData %>% 
+  # change the row names of countData into a column called probe_name
+  rownames_to_column(var = "probe_name") %>%  
+  # reduce the probe name to just the gene symbol, by removing the probe ID (making it NA) and separator.
+  separate(probe_name, 
+           into=c("gene_symbol", NA), 
+           sep = "_") %>% 
+  # group the data by gene symbol
+  group_by(gene_symbol) %>% 
+  # add the values in each row to each other, so that the counts of each gene are taken together. 
+  summarise(across(where(is.numeric), sum), 
+            # remove the grouping to avoid future errors
+            .groups = "drop") %>% 
+  # turn the column gene_symbol into row names
+  column_to_rownames(var = "gene_symbol")
 
+# show the first 10 rows of countData
+countData[1:10, ]
 ```
-
+Raw counts for probes referring to the same gene have now been added together.
 ***
 
 **Exercise 26: Re-apply CPM normalization on this gene level data**
 
 ```{r reapply-cpm}
-#
+cpmData <- data.frame(
+  # for each row, calculate cpm (cpm = (counts / sum of all counts in the column) * 1 million)
+  apply(countData, 2, function(x){x/sum(x)*1E6}))
 
+cpmData[1:10, ]
 ```
 
 ***
@@ -544,8 +698,10 @@ Some probes that were kept in the data had very low average expression levels, b
 * `cpmData` containing the CPM normalized counts for relevant, well-expressed probes
 
 ```{r save-data}
-#
-
+# saving the manifest, countData and cpmData to the output file (via the paths defined earlier)
+save(manifest, file=paste0(root_dir, probedata_store))
+save(countData, file=paste0(root_dir, count_store))
+save(cpmData, file=paste0(root_dir, cpm_store))
 ```
 
 ***
@@ -556,7 +712,7 @@ Some probes that were kept in the data had very low average expression levels, b
 
 ```{r session-info}
 #
-
+devtools::session_info()
 ```
 
 ***
