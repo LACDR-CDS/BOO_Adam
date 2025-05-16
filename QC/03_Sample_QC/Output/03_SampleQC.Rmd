@@ -3,7 +3,7 @@ title: "BOO 2025"
 subtitle: "Script 3: Sample QC"
 date: "`r Sys.Date()`" 
 author: 
-  Student name
+  Adam Seuren
 output:
   html_document:
     code_download: true
@@ -33,7 +33,7 @@ As before, we perform several setup steps at the start of the script to ensure o
 
 ```{r clean}
 # 
-
+rm(list=ls())
 ```
 
 ***
@@ -56,7 +56,21 @@ As before, we perform several setup steps at the start of the script to ensure o
 
 ```{r set-variables}
 #
+root_dir <- "C:/Users/mmpse/Documents/GitHub/BOO-Adam/QC/03_Sample_QC/" 
 
+count_path <- "Input/countData.Rdata" 
+cpm_path <- "Input/cpmData.Rdata" 
+metadata_path <- "Input/metaData.Rdata"
+
+count_store <- "Output/countData.Rdata"
+cpm_store <- "Output/cpmData.Rdata"
+metadata_store <- "Output/metaData.Rdata" 
+
+# Set count threshold to 600,000 - this is the minimum library size a sample needs to have. Including smaller samples would provide more unreliable data, as a small change in gene expression might look like a large effect.
+count_threshold <- 6E5
+
+# Set correlation threshold to 0.9 - it is important for the quality of the analysis that replicates of the same condition are correlated with each other
+corr_threshold <- 0.9 
 ```
 
 ***
@@ -71,7 +85,9 @@ Here, we load `tidyverse` and also a new package:
 
 ```{r load-packages, warning=F, message=F}
 #
-
+library(tidyverse)
+# ggrepel gives the possibility for labels in plots to stop overlapping with each other
+library(ggrepel)
 ```
 
 ***
@@ -89,7 +105,9 @@ Here, we load `tidyverse` and also a new package:
 
 ```{r load-data, warning=FALSE, message=FALSE}
 #
-
+load(paste0(root_dir, count_path))
+load(paste0(root_dir, cpm_path))
+load(paste0(root_dir, metadata_path))
 ```
 
 ***
@@ -103,10 +121,10 @@ Before applying any filters, it is good to perform some checks.
 **Exercise 5: Check that the column names of `countData` match the `sample_ID` order in `metaData`:**
 
 ```{r order-check}
-#
-
+# 
+table(metaData$sample_ID == colnames(countData))
 ```
-
+The function returns TRUE, so the column names of countData match the order of sample_ID in the metadata.
 ***
 
 ## Calculate
@@ -114,10 +132,17 @@ Before applying any filters, it is good to perform some checks.
 **Exercise 6: Now that we have removed unreliable and lowly expressed probes from `countData`, recalculate and save a new `lib_size` in the metadata:**
 
 ```{r calculate-lib}
-#
-
+# Summary of the unchanged lib_size
+summary(metaData$lib_size)
 ```
+Mean library size: 3740053
+```{r}
+# setting the library size as the total counts per sample of the updated countData
+metaData$lib_size <- colSums(countData)
 
+summary(metaData$lib_size)
+```
+Mean library size: 3614091. This is a bit smaller than before, as unreliable and lowly expressed probes have been removed from the countData.  
 ***
 
 ## Distribution
@@ -126,9 +151,16 @@ Before applying any filters, it is good to perform some checks.
 
 ```{r lib-histogram}
 #
-
+metaData %>% 
+  # Creating a histogram of library size
+  ggplot(aes(x = lib_size)) +
+  geom_histogram(fill = "lightblue", color = "black", bins = 30) +
+  ggtitle("Histogram of library size values") + 
+  xlab("Library size") +
+  theme_bw()
 ```
 
+The library size ranges from a bit over 2 million to a bit over 5 million reads, with an average around 3 million. This is a good amount for a TempOseq analysis, as the method is highly efficient.
 ***
 
 ## Flag
@@ -138,10 +170,13 @@ Samples whose library size is below 20% of the targeted sequencing depth (`corr_
 **Exercise 8: Create a flag in `metaData` describing if samples have low reads or not:**
 
 ```{r lib-flag}
-#
+metaData <- metaData %>% 
+  # A column called flagLowReads is added to the metadata, which tells the reader whether or not the sample library size is above the threshold.
+  mutate(flagLowReads = ifelse(lib_size <= count_threshold, T, F))
 
+table(metaData$flagLowReads)
 ```
-
+All values in the new column return false, which means that no sample library size is below the count threshold of 600000. 
 ***
 
 ## Plot
@@ -159,9 +194,25 @@ It is good to visualize the library size for each sample, grouped by compound ID
 
 ```{r lib-boxplot}
 #
+metaData %>%   
+  # concentration ID is made into a factor, so it can be used to color the boxplot by
+  mutate(conc_ID = factor(conc_ID)) %>%   
+  # library size is plotted against compound ID; we want to view the library size per condition
+  ggplot(aes(x=compound_ID, y=lib_size)) + 
+  # The plot is colored by concentration
+  geom_boxplot(aes(color=conc_ID), width=0.8) +  
+  # A dashed line is drawn at the minimum library size of 600000 counts.
+  geom_hline(aes(yintercept=count_threshold), color="black", linetype="dashed") +
+  # values below the threshold are labelled
+  geom_text_repel(aes(x = compound_ID, y = lib_size, color = conc_ID),   
+                   label=ifelse(metaData$lib_size < count_threshold, 
+                                metaData$rep, "")) +
 
+  xlab("") + ylab("Library size") + ggtitle("Library size distributions per condition") +    
+  theme_bw()                                  
 ```
 
+The library sizes per condition are relatively comparable to each other. Library sizes in the highest concentrations of both treatment conditions are smaller than the library sizes of the conditions of the lower concentrations; this could point to cytotoxicity, as dying cells do not express es much DNA.
 ***
 
 # Replicate correlation
@@ -173,8 +224,8 @@ The replicate correlation filter aims to remove any outlying replicates, with ma
 **Exercise 10: Calculate and store the log2(CPM + 1) values in a `logcpmData` object:**
 
 ```{r log2cpm}
-#
-
+# the log2(cpm + 1) is calculated and stored
+logcpmData <- log2(cpmData + 1)
 ```
 
 ***
@@ -193,7 +244,45 @@ In order to calculate pairwise correlations, each sample needs to be compared to
 </details>
 
 ```{r pairwise-corr}
-#
+# A data frame is made for the output of the replicate filter
+replicateFilterOutput <- data.frame()
+
+# A loop is made with an iteration for each unique condition
+for(i in unique(metaData$mean_ID)){
+  # The metadata is filtered to only show data from the current mean_id
+  metaDataReps <- metaData %>% 
+    filter(mean_ID == i)
+  
+  # 
+  cpmDataReps <- logcpmData[, metaDataReps$sample_ID] 
+  
+  #   
+  for(j in 1:ncol(cpmDataReps)){
+    # 
+    for(k in 1:ncol(cpmDataReps)){
+      # 
+      sample_A <- colnames(cpmDataReps)[j]
+      sample_B <- colnames(cpmDataReps)[k]
+      
+      # 
+      if(sample_A != sample_B){
+        # 
+        r2 <- cor(cpmDataReps[,j], cpmDataReps[,k])
+        
+        # 
+        replicateFilterOutput <- rbind(
+          replicateFilterOutput, 
+          data.frame(mean_ID = i, 
+                     sample_A = sample_A,
+                     sample_B = sample_B,
+                     r2 = r2))
+      }
+    }
+  }
+}
+
+# 
+head(replicateFilterOutput)
 
 ```
 
