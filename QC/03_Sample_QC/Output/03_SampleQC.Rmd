@@ -212,7 +212,7 @@ metaData %>%
   theme_bw()                                  
 ```
 
-The library sizes per condition are relatively comparable to each other. Library sizes in the highest concentrations of both treatment conditions are smaller than the library sizes of the conditions of the lower concentrations; this could point to cytotoxicity, as dying cells do not express es much DNA.
+The library sizes per condition are relatively comparable to each other. Library sizes in the highest concentrations of both treatment conditions are smaller than the library sizes of the conditions of the lower concentrations; this could point to cytotoxicity, as dying cells do not express es much DNA. Additionally, the library size in the cells treated with propylene carbonate (the low-toxic chemical) ascends over the concentration levels, whereas the library size in the cells treated with triazine (the medium-toxic chemical) is consistently higher. This could be a sign that triazine is, indeed, more toxic (as toxicity can increase gene expression and therefore a larger library size), but that propylene carbonate, too, causes reactions in the cell when the concentration is high enough.
 ***
 
 # Replicate correlation
@@ -253,35 +253,40 @@ for(i in unique(metaData$mean_ID)){
   metaDataReps <- metaData %>% 
     filter(mean_ID == i)
   
-  # 
+  # The repetitions from the current mean_id are subsetted out of the logcpmdata
   cpmDataReps <- logcpmData[, metaDataReps$sample_ID] 
   
-  #   
+  # loop through each column of the cpmdata rows that were selected in the previous line   
   for(j in 1:ncol(cpmDataReps)){
-    # 
+    # in a pairwise fashion (comparing the replicates with each other in pairs)
     for(k in 1:ncol(cpmDataReps)){
-      # 
+      # save the two selected replicates as variables
       sample_A <- colnames(cpmDataReps)[j]
       sample_B <- colnames(cpmDataReps)[k]
       
-      # 
+      # the correlation between identical replicates does not need to be calculated (do not compare a sample with itself)
       if(sample_A != sample_B){
-        # 
+        # calculate pairwise correlation and put it into a variable called r2
         r2 <- cor(cpmDataReps[,j], cpmDataReps[,k])
         
-        # 
+        # put the results of the calculation into the replicateFilterOutput dataframe
         replicateFilterOutput <- rbind(
           replicateFilterOutput, 
-          data.frame(mean_ID = i, 
+          data.frame(
+            # first column: currently selected mean_ID
+            mean_ID = i, 
+            # second column: sample_ID of sample A
                      sample_A = sample_A,
+            # third column: sample_ID of sample B
                      sample_B = sample_B,
+            # fourth column: correlation between the two samples
                      r2 = r2))
       }
     }
   }
 }
 
-# 
+# show the first rows of the dataframe
 head(replicateFilterOutput)
 
 ```
@@ -295,10 +300,30 @@ Each sample is judged by the best pairwise correlation it can achieve. If this i
 **Exercise 12: Calculate the `max_r2` for each sample and add it to the `replicateFilterOutput`:**
 
 ```{r max-r2}
-#
+replicateFilterOutput <- replicateFilterOutput %>% 
+  # the sample name is changed to compound name _ concentration ID (plate and replicate number are removed from the name)
+  separate(sample_A, 
+           into = c("Compound", "Conc_ID", NA, NA), 
+           remove = F, 
+           sep = "_") %>% 
+  # compound column is added. 
+  mutate(Compound = 
+           # if the compound name is DMSO
+           ifelse(grepl("DMSO", Compound), 
+                  # select only the first 5 letters (in order to not get separations between the samples in the same DMSO level; names in the column are DMSOH and DMSOL instead of DMSOHigh1 and DMSOHigh2, DMSOLow1 and DMSOLow2)
+                  substr(Compound,1,5), Compound)) %>% 
+  # group by condition
+  group_by(sample_A) %>%
+  # save the maximum pairwise correlation between replicates of that condition
+  mutate(max_r2 = max(r2, na.rm = T)) %>% 
+  # ungroup the dataframe in order to avoid errors later on
+  ungroup()
+
+# inspect the maximum correlations between replicates
+summary(replicateFilterOutput$max_r2)
 
 ```
-
+The lowest of the maximum pairwise correlations between replicates is 0.9071, which is above the threshold of 0.9.
 ***
 
 ## Plot
@@ -306,10 +331,28 @@ Each sample is judged by the best pairwise correlation it can achieve. If this i
 **Exercise 13: Visualize the pairwise replicate correlations for each experimental conditions. Describe what you observe:**
 
 ```{r corr-boxplot}
-#
+replicateFilterOutput %>% 
+  # pairwise correlation between replicates is plotted into a boxplot per condition
+  ggplot(aes(x = sample_A, y = r2)) +
+  geom_boxplot(color = "grey60") +
+  # with points at the actual pairwise correlation values
+  geom_point(color = "black", size = 0.5) +
+  # where the point describing the highest pairwise correlation level for each condition is colored, with a different color for eash concentration level
+  geom_point(aes(y = max_r2, color = Conc_ID), 
+             size = 1.5) +
+  # a dashed line is added at the correlation threshold value of 0.9
+  geom_hline(aes(yintercept = corr_threshold), 
+             color = "red", linetype = "dashed") +
+  ylab("") + xlab("Sample ID") + ggtitle("Replicate correlations") +
+  theme_bw() +
+  # sample names are not printed (they are not readable when printed, and are not necessary for the clarity of the plot)
+  theme(axis.text.x = element_blank()) +
+  # each compound gets a different plot, with an x-axis that fits the plot
+  facet_wrap(~Compound, scales='free_x', nrow=2)
 
 ```
 
+Correlation levels are generally high. However, the correlations of one sample treated with triazine at concentration level 5 is noticably lower than the rest. It is close to the threshold, though still above it. All samples pass the correlation filter.
 ***
 
 ## Flag
@@ -324,10 +367,22 @@ Each sample is judged by the best pairwise correlation it can achieve. If this i
 </details>
 
 ```{r corr-flag}
-#
+# the maximum correlation between replicates is filtered for each condition and saved into a new variable
+replicateFilterMerge <- replicateFilterOutput %>% 
+  select(sample_ID = sample_A, max_r2) %>% 
+  # for each unique condition
+  distinct()
+
+# the new variable is added to the metadata file, by sample ID -> the metadata now shows the maximum correlation level for each sample.
+metaData <- left_join(metaData, replicateFilterMerge, 
+                      by = "sample_ID") %>% 
+  # a new column is added, which shows if the maximum correlation levels are above the threshold value of 0.9.
+  mutate(flagLowCorr = ifelse(max_r2 <= corr_threshold, T, F))
+
+table(metaData$flagLowCorr)
 
 ```
-
+All samples pass the correlation filter, no samples are flagged.
 ***
 
 # Advanced questions
@@ -370,8 +425,16 @@ Instead of looking at pairwise correlations, another way of measuring how good a
 </details>
 
 ```{r any-flag}
-#
+# metadata is subsetted to only show the samples that aren't flagged. this is only the high quality data.
+metaData <- metaData %>% 
+  filter(!flagLowReads & !flagLowCorr)
 
+# countdata and cpmdata are subsetted to only show the samples that are in the updated metadata file
+cpmData <- cpmData[ , metaData$sample_ID]
+countData <- countData[ , metaData$sample_ID]
+
+# dimensions of the new metadata file are checked (should be 66/32 because no samples were flagged, so no rows should be removed)
+dim(metaData)
 ```
 
 ***
@@ -381,8 +444,9 @@ Instead of looking at pairwise correlations, another way of measuring how good a
 **Exercise 17: Save the updated data:**
 
 ```{r save-metadata}
-#
-
+save(metaData, file=paste0(root_dir, metadata_store))
+save(cpmData, file=paste0(root_dir, cpm_store))
+save(countData, file=paste0(root_dir, count_store))
 ```
 
 ***
@@ -392,8 +456,7 @@ Instead of looking at pairwise correlations, another way of measuring how good a
 **Exercise 18: Print your session info at the end of the script, knit the R markdown document, and push it to GitHub:**
 
 ```{r session-info}
-#
-
+devtools::session_info()
 ```
 
 ***
