@@ -437,8 +437,8 @@ It is important to save output of analyses locally, especially when they can be 
 **Exercise 15: Save the results using the path variables you created at the start of the script:**
 
 ```{r save}
-#
-
+save(res_low, file=paste0(root_dir, low_store))
+save(res_moderate, file=paste0(root_dir, moderate_store))
 ```
 
 ***
@@ -459,8 +459,16 @@ One of the plots that is useful to make following DEG analysis is visualization 
 </details>
 
 ```{r ref-df}
-#
+# Moderate and low toxicity compounds are combined into one dataframe, for easier analysis
+res <- rbind(res_moderate, res_low)
 
+# A dataframe is created with only the mean_ID and the direction. NA values are filtered out.
+plot_df <- res %>% 
+  filter(!is.na(dir)) %>% 
+  select(mean_ID, dir) %>% 
+  distinct()
+
+plot_df
 ```
 
 ***
@@ -477,8 +485,21 @@ Using `mean_ID` and `separate()`, you can extract information about the compound
 </details>
 
 ```{r plot-df}
-#
+# The dataframe created in the previous chunk is adapted.
+plot_df <- res %>% 
+  # Only genes with significant changes (= DEGs) are taken into account, NA values are filtered out.
+  filter(sig == TRUE & !is.na(dir)) %>% 
+  # Data in the dataframe is grouped by mean_ID and direction.
+  group_by(mean_ID, dir) %>%
+  summarize(n = n(), .groups = "drop") %>% 
+  # Columns containing mean_ID and direction are added to the dataframe
+  right_join(y = plot_df, by = c("mean_ID", "dir")) %>% 
+  # If a condition has no DEGs, put a 0 in the "n" column
+  mutate(n = ifelse(is.na(n), 0, n)) %>% 
+  # Mean_ID is separated into two columns describing the compound and the concentration ID, the mean_ID column itself is not removed. Plate number is removed. 
+  separate(mean_ID, sep="_", into=c("Compound", "Conc_ID", NA), remove=F)
 
+plot_df
 ```
 
 ***
@@ -486,9 +507,18 @@ Using `mean_ID` and `separate()`, you can extract information about the compound
 **Exercise 18: Plot the number of DEGs across concentrations for the two compounds. Do you see a dose-response?**
 
 ```{r dose-response}
-#
-
+plot_df %>% 
+  # If a gene is downregulated, show a negative value in the bar plot
+  mutate(n = ifelse(dir == "Down", -n, n)) %>% 
+  # Bars show the number of DEGs for each concentration level, and are filled by direction
+  ggplot(aes(x=Conc_ID, y=n, fill=dir)) +
+  geom_col() +
+  geom_hline(aes(yintercept=0)) +
+  theme_bw() + 
+  # Data is separated by compound
+  facet_wrap(~Compound, scales="free_x")
 ```
+There seems to be somewhat of a dose-response in the low tox compound: differential gene expression starts out high, and lowers as concentrations increase. No such pattern can be seen in the moderate toxicity compound. There, the lowest concentration also yields the most DEGs. There does seem to be a somewhat consistent transcriptomic response in the higher concentrations, with a larger downregulation at the third concentration level.
 
 ***
 
@@ -506,10 +536,46 @@ A volcano plot is useful to visualize effect sizes and significance of each gene
 </details>
 
 ```{r volcano}
-#
-
+# A plot is created for each unique concentration level
+for(i in unique(metaData$compound_ID)[1:2]) {
+  print(res %>% 
+          # mean_ID is separated into compound and concentration ID, plate number is removed.
+          separate(mean_ID, sep="_", into=c("Compound", "Conc_ID", NA), remove=F) %>% 
+          # NA values are filtered out, output is separated by compound
+          filter(!is.na(sig) & Compound == i) %>% 
+          # A variable is added to calculate the -log10 of the p value
+          mutate(log10p = -log10(pvalue)) %>% 
+          ggplot(aes(x = log2FoldChange, y = log10p)) +
+          # Significant genes are colored
+          geom_point(aes(color=sig), size=0.5) +
+          # Labels with gene symbol are added to DEGs that have a very low p value
+          geom_text_repel(aes(label = ifelse(padj < 1E-4, gene_symbol, NA)),
+                    color="dodgerblue", size=2) +
+          # Minimum and maximum x-axis values are set to the absolute maximum fold change, with NA values removed
+          xlim(-max(abs(res$log2FoldChange), na.rm=T), max(abs(res$log2FoldChange), na.rm=T)) +
+          scale_color_manual(values = c("grey", "dodgerblue")) +
+          theme_bw() + 
+          # Each plot is titled with the compound ID
+          ggtitle(i) +
+          # A separate plot is made for each concentration level
+          facet_wrap(~Conc_ID))
+}
 ```
+In the first two concentration levels of the low tox compound, the same few genes have the highest differential expression. These genes are:
+- PAEP - Involved in pregnancy
+- MYH11 - Smooth muscle myosin
+- S100A8 - Regulation of cellullar processes such as cell cycle progression and differentiation
+- DCN - Collagen fibril assembly, tumor suppression -> stimulation of autophagy and inflammation
 
+These genes, except maybe for DCN, do not make a lot of sense in a toxicity context.
+
+A larger spread can be seen in the fifth concentration level of the moderately toxic compound than in the other concentration levels. This may be partly due to the one repetition with low correlation to the other repetitions of the same condition. The genes with the largest differential expression vary per concentration level, although APOA4 can be seen in concentration level 2, 3, and 4. The genes with the largest differential expression are:
+- RPL27 - Ribosomal protein
+- DLG1 - Scaffold protein. Plays a role in septate junction formation, signal transduction, cell proliferation, synaptogenesis and lymphocyte activation.
+- APOA4 - Exact function unknown. Possibly an activator of lecithin-cholesterol acyltransferase.
+- ALDOB - Conversion of fructose-1,6-bisphosphate to glyceraldehyde 3-phosphate and dihydroxyacetone phosphate. Biased expression in the liver.
+
+These genes, too, do not make a lot of sense in a toxicity context, although activation of DLG1 could be a sign of toxicity (heightened signal transduction, lymphocyte activation).
 ***
 
 ## MA plots
@@ -519,10 +585,26 @@ One feature that volcano plots miss is the baseline expression of genes. This ca
 **Exercise 20: Create MA plots for the two compounds. Outline your findings:**
 
 ```{r ma}
-#
-
+# A plot is created for each unique treatment condition.
+for(i in unique(metaData$compound_ID)[1:2]) {
+  print(res %>% 
+          separate(mean_ID, sep="_", into=c("Compound", "Conc_ID", NA), remove=F) %>% 
+          filter(!is.na(sig) & Compound == i) %>% 
+          # Log2 of the base mean (mean of normalised count of all samples) is used as the x-axis
+          mutate(log2baseMean = log2(baseMean)) %>% 
+          ggplot(aes(x = log2baseMean, y = log2FoldChange)) +
+          geom_point(aes(color=sig), size=0.5) +
+          geom_text_repel(aes(label = ifelse(padj < 1E-4, gene_symbol, NA)),
+                    color="dodgerblue", size=2) +
+          ylim(-max(abs(res$log2FoldChange), na.rm=T), max(abs(res$log2FoldChange), na.rm=T)) +
+          scale_color_manual(values = c("grey", "dodgerblue")) +
+          theme_bw() + 
+          ggtitle(i) +
+          facet_wrap(~Conc_ID))
+}
 ```
-
+The MA plot for the low toxic compound shows the same four genes as being the most differently expressed. 
+For the moderately toxic compound, RPL27 does not show anymore. Again, the fifth concentration level shows a larger spread of non-significant genes than the other concentration levels.
 ***
 
 # Advanced question
@@ -544,7 +626,7 @@ It can also be useful to plot individual gene results, especially to investigate
 
 ```{r session-info}
 #
-
+devtools::session_info()
 ```
 
 ***
