@@ -45,7 +45,7 @@ count_path <- "Input/countData.Rdata"
 metadata_path <- "Input/metaData.Rdata"
 
 low_store <- "Output/DEGres_low.Rdata"
-high_store <- "Output/DEGres_high.Rdata"
+moderate_store <- "Output/DEGres_moderate.Rdata"
 ```
 
 ***
@@ -132,8 +132,17 @@ We want to perform DEG analysis for each concentration of the low and high toxic
 
 
 ```{r levels}
-#
+# Subsetting the low toxicity (propylene carbonate) data from the contrast dataframe
+contrast_low <- contrast %>% 
+  filter(file_ID == "CS1104")
 
+contrast_low
+```
+```{r}
+# Contrast_low is separated into concentration levels
+levels <- unique(contrast_low$mean_ID)
+
+levels
 ```
 
 ***
@@ -151,8 +160,25 @@ Before looping through `levels`, let's go through the steps required to perform 
 
 
 ```{r subset}
-#
+# The first low tox concentration level is stored in variable i 
+i <- levels[1]
+i
 
+```
+```{r}
+# The first concentration level is subsetted from the contrast_low dataframe
+contrast_sub <- contrast_low %>% 
+  filter(mean_ID == i)
+contrast_sub
+
+# The samples treated with the first concentration level and their controls are subsetted from the metadata
+metaData_sub <- metaData %>% 
+  filter(mean_ID %in% c(contrast_sub$mean_ID, contrast_sub$mean_ID_control))
+metaData_sub
+
+# And from the countdata
+countData_sub <- countData[ , metaData_sub$sample_ID]
+countData_sub[1:10, ]
 ```
 
 ***
@@ -172,8 +198,13 @@ Now that we have subset our data, we can use it to create a DESeq object (`dds`)
 
 
 ```{r fit}
-#
-
+# A DESeq object is made with data from the subsetted countdata and metadata
+dds <- DESeqDataSetFromMatrix(
+  countData = countData_sub,
+  colData = metaData_sub,
+  # Data will be compared by mean_ID
+  design = ~ mean_ID
+)
 ```
 
 ***
@@ -189,8 +220,9 @@ The output object, `dds`, contains all the model fits and is ready for extractin
 **Exercise 9: Use the `DESeq()` function to update the `dds` object and include all specified model fits:**
 
 ```{r deseq}
-#
-
+# The DESeq function is applied to the DESeq object dds
+dds <- DESeq(dds)
+dds
 ```
 
 ***
@@ -221,8 +253,14 @@ The final log2FCs are then a posterior estimate that combines:
 
 
 ```{r shrinkage}
-#
+# Applying shrinkage. This way, extreme or noisy values will not have big influences on the data, and the results will be more reliable.
+res_low <- lfcShrink(dds, 
+                 contrast = c("mean_ID",
+                              contrast_sub$mean_ID,
+                              contrast_sub$mean_ID_control),
+                 type="normal")
 
+head(res_low)
 ```
 
 ***
@@ -234,8 +272,17 @@ The final log2FCs are then a posterior estimate that combines:
 * `mean_ID_control` containing the mean ID of the control samples
 
 ```{r results}
-#
+# res_low is turned into a dataframe
+res_low <- data.frame(res_low) %>% 
+  # The rownames are turned into a column called gene_symbol
+  rownames_to_column(var = "gene_symbol") %>% 
+  # Columns containing the mean_ID (which treatment condition the sample was taken from) and the mean_ID_control (which control condition the sample was compared to), as found in contrast_sub, are added. 
+  mutate(
+    mean_ID = contrast_sub$mean_ID,
+    mean_ID_control = contrast_sub$mean_ID_control
+  )
 
+head(res_low)
 ```
 
 ***
@@ -247,8 +294,41 @@ Using a `for` loop, you can run each of these steps for every required compariso
 **Exercise 12: Loop through the remaining values of the `levels` variable to add all of the comparisons for the low toxicity compound to your `res` object:**
 
 ```{r loop}
-#
-
+# The stept completed in the previous chunks are repeated with help of a loop for each concentration level other than the first.
+for(i in levels[-1]){
+  # Creating a contrast dataset and subsetting the metadata and countdata
+  contrast_sub <- contrast_low %>% 
+    filter(mean_ID == i)
+  
+  metaData_sub <- metaData %>% 
+    filter(mean_ID %in% c(contrast_sub$mean_ID, contrast_sub$mean_ID_control))
+  
+  countData_sub <- countData[ , metaData_sub$sample_ID]
+# Creating a DESeq dataset from the subsetted data
+  dds <- DESeqDataSetFromMatrix(
+    countData = countData_sub,
+    colData = metaData_sub,
+    design = ~ mean_ID)  
+# The DESeq function is applied  
+  dds <- DESeq(dds)
+# Normal shrinkage is applied  
+  res_low <- rbind(res_low, 
+    data.frame(lfcShrink(dds, 
+                 contrast = c("mean_ID",
+                              contrast_sub$mean_ID,
+                              contrast_sub$mean_ID_control),
+                 type="normal")) %>% 
+      # The data is turned into a clear dataframe, with columns describing the treatment condition and the control condition it was compared to
+    rownames_to_column(var = "gene_symbol") %>% 
+    mutate(
+      mean_ID = contrast_sub$mean_ID,
+      mean_ID_control = contrast_sub$mean_ID_control))
+}
+```
+```{r}
+# Inspecting the data
+head(res_low)
+dim(res_low)
 ```
 
 ***
@@ -256,17 +336,58 @@ Using a `for` loop, you can run each of these steps for every required compariso
 **Exercise 13: Perform DEG analysis for the high toxicity compound, saving the output in `res_high`:**
 
 First, we make the contrast for the high toxicity compound and save the levels:
+-> Note: as triazine is a moderately toxic compound, the output will be saved in res_moderate
 
 ```{r high-contrast}
-#
+# A contrast dataframe is made, containing the treatment conditions / concentration levels for the moderate toxicity compound and the control conditions they are to be compared to
+contrast_moderate <- contrast %>% 
+  filter(file_ID == "CS1127")
 
+contrast_moderate
+
+levels <- unique(contrast_moderate$mean_ID)
+
+levels
 ```
 
 Then, we loop through `levels` and save results:
 
 ```{r high-loop}
-#
+# The function of this loop is the same as the loop for the low toxicity compound, except this time all concentration levels are looped through.
+res_moderate <- data.frame()
 
+for(i in levels){
+  contrast_sub <- contrast_moderate %>% 
+    filter(mean_ID == i)
+  
+  metaData_sub <- metaData %>% 
+    filter(mean_ID %in% c(contrast_sub$mean_ID, contrast_sub$mean_ID_control))
+  
+  countData_sub <- countData[ , metaData_sub$sample_ID]
+
+  dds <- DESeqDataSetFromMatrix(
+    countData = countData_sub,
+    colData = metaData_sub,
+    design = ~ mean_ID)  
+  
+  dds <- DESeq(dds)
+  
+  res_moderate <- rbind(res_moderate, 
+    data.frame(lfcShrink(dds, 
+                 contrast = c("mean_ID",
+                              contrast_sub$mean_ID,
+                              contrast_sub$mean_ID_control),
+                 type="normal")) %>% 
+    rownames_to_column(var = "gene_symbol") %>% 
+    mutate(
+      mean_ID = contrast_sub$mean_ID,
+      mean_ID_control = contrast_sub$mean_ID_control))
+}
+```
+```{r}
+# Inspecting the output
+head(res_moderate)
+dim(res_moderate)
 ```
 
 ***
@@ -287,10 +408,26 @@ There are many ways to define a differentially expressed gene based either on th
 </details>
 
 ```{r sig-dir}
-#
 
+res_low <- res_low %>% 
+  mutate(
+    # dir describes whether the log2 fold change has gone up (>0) or down (<0) -> the direction (dir) of the change
+    dir = ifelse(log2FoldChange < 0, "Down", "Up"),
+    # sig describes whether the change is both significant and large enough. If the adjusted p value is equal to or lower than 0.05, AND the absolute log2 fold change is greater than 1.2, the column will return TRUE. Otherwise, it will return FALSE.
+    sig = ifelse(padj <= 0.05 & abs(log2FoldChange) > log2(1.2), TRUE, FALSE)
+  )
+
+table(res_low$sig, res_low$dir, useNA="always")
+
+res_moderate <- res_moderate %>% 
+  mutate(
+    dir = ifelse(log2FoldChange < 0, "Down", "Up"),
+    sig = ifelse(padj <= 0.05 & abs(log2FoldChange) > log2(1.2), TRUE, FALSE)
+  )
+
+table(res_moderate$sig, res_moderate$dir, useNA="always")
 ```
-
+In the low toxicity compound, there are 21 significant downregulated genes, and 109 significant upregulated genes. In the moderate toxic compound, there are 99 significant downregulated genes and 38 significant upregulated genes. In total, the moderately toxic compound yields more DEGs, though there is less upregulation and more downregulation.
 ***
 
 ## Save
