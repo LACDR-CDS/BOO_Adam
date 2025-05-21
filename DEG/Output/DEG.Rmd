@@ -427,7 +427,7 @@ res_moderate <- res_moderate %>%
 
 table(res_moderate$sig, res_moderate$dir, useNA="always")
 ```
-In the low toxicity compound, there are 21 significant downregulated genes, and 109 significant upregulated genes. In the moderate toxic compound, there are 99 significant downregulated genes and 38 significant upregulated genes. In total, the moderately toxic compound yields more DEGs, though there is less upregulation and more downregulation.
+In the low toxicity compound, there are 21 significant downregulated genes, and 47 significant upregulated genes. In the moderate toxic compound, there are 99 significant downregulated genes and 38 significant upregulated genes. In total, the moderately toxic compound yields more DEGs, though there is (a little) less upregulation and more downregulation.
 ***
 
 ## Save
@@ -518,7 +518,7 @@ plot_df %>%
   # Data is separated by compound
   facet_wrap(~Compound, scales="free_x")
 ```
-There seems to be somewhat of a dose-response in the low tox compound: differential gene expression starts out high, and lowers as concentrations increase. No such pattern can be seen in the moderate toxicity compound. There, the lowest concentration also yields the most DEGs. There does seem to be a somewhat consistent transcriptomic response in the higher concentrations, with a larger downregulation at the third concentration level.
+There seems to be somewhat of a dose-response in the low tox compound: differential gene expression starts out high, and lowers as concentrations increase. No such pattern can be seen in the moderate toxicity compound. There, the lowest concentration also yields the most DEGs. There does seem to be a somewhat consistent transcriptomic response in the higher concentrations, with a larger downregulation at the third and fifth concentration level.
 
 ***
 
@@ -569,11 +569,12 @@ In the first two concentration levels of the low tox compound, the same few gene
 
 These genes, except maybe for DCN, do not make a lot of sense in a toxicity context.
 
-A larger spread can be seen in the fifth concentration level of the moderately toxic compound than in the other concentration levels. This may be partly due to the one repetition with low correlation to the other repetitions of the same condition. The genes with the largest differential expression vary per concentration level, although APOA4 can be seen in concentration level 2, 3, and 4. The genes with the largest differential expression are:
+In the cells treated with a moderately toxic chemical, the genes with the largest differential expression vary per concentration level, although APOA4 can be seen in concentration level 2, 3, and 4. The genes with the largest differential expression are:
 - RPL27 - Ribosomal protein
 - DLG1 - Scaffold protein. Plays a role in septate junction formation, signal transduction, cell proliferation, synaptogenesis and lymphocyte activation.
 - APOA4 - Exact function unknown. Possibly an activator of lecithin-cholesterol acyltransferase.
 - ALDOB - Conversion of fructose-1,6-bisphosphate to glyceraldehyde 3-phosphate and dihydroxyacetone phosphate. Biased expression in the liver.
+- TRMT112 - Macromolecule methylation, macromolecule metabolic processes
 
 These genes, too, do not make a lot of sense in a toxicity context, although activation of DLG1 could be a sign of toxicity (heightened signal transduction, lymphocyte activation).
 ***
@@ -604,7 +605,7 @@ for(i in unique(metaData$compound_ID)[1:2]) {
 }
 ```
 The MA plot for the low toxic compound shows the same four genes as being the most differently expressed. 
-For the moderately toxic compound, RPL27 does not show anymore. Again, the fifth concentration level shows a larger spread of non-significant genes than the other concentration levels.
+For the moderately toxic compound, RPL27 does not show anymore. 
 ***
 
 # Advanced question
