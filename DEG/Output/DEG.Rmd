@@ -294,7 +294,7 @@ Using a `for` loop, you can run each of these steps for every required compariso
 **Exercise 12: Loop through the remaining values of the `levels` variable to add all of the comparisons for the low toxicity compound to your `res` object:**
 
 ```{r loop}
-# The stept completed in the previous chunks are repeated with help of a loop for each concentration level other than the first.
+# The steps completed in the previous chunks are repeated with help of a loop for each concentration level other than the first.
 for(i in levels[-1]){
   # Creating a contrast dataset and subsetting the metadata and countdata
   contrast_sub <- contrast_low %>% 

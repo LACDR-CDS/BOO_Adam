@@ -117,15 +117,18 @@ In order to run ORA you need a list of genes of interest (your DEGs).
 </details>
 
 ```{r}
-# DEGs are filtered 
+# Significant DEGs are filtered out of the data. Only their gene symbols are kept.
 deg_moderate <- unique((res_moderate %>% 
                filter(sig == T))$gene_symbol)
 
 deg_low <- unique((res_low %>% 
                filter(sig == T))$gene_symbol)
+
+deg_moderate
+deg_low
 ```
 
-There are 101 DEGs for the high toxicity compound and 146 for the low toxicity one.
+There are 127 DEGs for the moderate toxicity compound and 55 for the low toxicity one.
 
 ***
 
@@ -143,24 +146,25 @@ The `enrichr` function performs over-representation analysis (ORA) using a list 
 </details>
 
 ```{r}
-ora_high <- enrichr(deg_high,
+# The DEG list from cells treated with a moderately toxic compound is enriched with four databases.
+ora_moderate <- enrichr(deg_moderate,
                        c("GO_Biological_Process_2025",
                          "GO_Molecular_Function_2025",
                          "Reactome_Pathways_2024",
                          "KEGG_2021_Human"))
 
-ora_high <- bind_rows(ora_high)
+# The list of enriched DEGs is converted into a dataframe
+ora_moderate <- bind_rows(ora_moderate)
 
-ora_high %>% filter(Adjusted.P.value <= 0.05)
+# Only the significantly changed pathways are investigated. 
+ora_moderate %>% filter(Adjusted.P.value <= 0.05)
 ```
-
-There are 92 enriched terms in the DEGs from the high toxicity compound (hydroquinone). Some of the top terms are expected responses from such an exposure:
-
-* **Retinoid** and **Retinol Metabolic Process**: retinoids are metabolized by cytochrome P450 enzymes, such as CYP1A1 and CYP1A2, which are DEGs in our data. These enzymes are also responsible for metabolism of hydroquinone, so it is not surprising the terms are enriched in our gene list. 
-* **Primary Alcohol Metabolic Process**: since hydroquinone disrupts phase I/II metabolism, including alcohol dehydrogenases, it is not surprising to see this as an enrichment for DEGs following hydroquinone exposure.
-* **Steroid** and **Estrogen Metabolic Process**: hydroquinone can influence endocrine and steroidogenesis via modulation of P450 enzymes
-* **Extracellular Matrix (ECM) Organization**: could be upregulated if hydroquinone is inducing oxidative stress or fibrotic signalling pathways, such as changing the expression of collagen genes
-* **Negative Regulation of IGF Receptor Signalling**: since the IGF axis is sensitive to oxidative stress, it may be up- or down-regulated in response to exposure to a high toxicity compound like hydroquinone
+The top 5 enriched terms are:
+- Cytoplasmic Translation: translation of mRNA into proteins.  -> could be a reaction to toxicity?
+- Ribosomal Small Subunit Biogenesis: makes sense in combination with cytoplasmic translation; ribosomes are needed for the translation.
+- Cellular response to low-density lipoprotein particle stimulus: triazine is a low-density lipoparticle. This is clearly a response to the chemical, though it does not directly indicate toxicity.
+- Macromolecule biosynthetic process: synthesis of a macromolecule. Does not seem to be directly related to triazine.
+- Gene expression: again, a logical combination with both cytoplasmic translation and ribosomal small subunit biogenesis. Overrepresentation of these three enriched terms could be a reaction to triazine entering the system.
 
 ***
 
@@ -175,14 +179,14 @@ ora_low <- bind_rows(ora_low)
 
 ora_low %>% filter(Adjusted.P.value <= 0.05)
 ```
+Top 5 enriched terms:
+- Retinoid metabolic process: metabolism of retinoids - derivatives of vitamin A
+- Aminoglycoside antibiotic metabolic process:
+- Daunorubucin metabolic process:
+- Prostaglandin metabolic process:
+- Polyketide metabolic process:
 
-There are 4 enriched terms in the DEGs from the low toxicity compound (triethylene glycol). This indicates that despite having a higher number of DEGs, the number of pathways disrupted by this lower toxicity compounds is less, which could be important for distinguishing relevant and less relevant transcriptomic responses. When we look at the terms enriched, they are more general:
-
-* `GTPase Regulator Activity`: GTPase regulators control cytoskeletal dynamics, trafficking, and signal transduction
-* `Metabolism`: as a xenobiotic, TEG is metabolized in the liver and even relatively inert chemicals can trigger broad metabolic genes in this instance
-* `Autophagy`: often induced by cellular stress, and since TEG is known to cause mild oxidative and metabolic stress at high concentrations, this enrichment may reflect that
-* `Metabolism of xenobiotics by cytochrome P450`: expected, as TEG is metabolized by these PHH cells after exposure
-
+These, and most other high-ranking enriched terms, describe metabolic processes. The reaction of the cell to propylene carbonate might have something to do with metabolism. -> search literature
 ***
 
 ## Plots
@@ -194,10 +198,13 @@ Using `geom_col`, we can visualize the results for each of the compounds.
 **Exercise 7: Take a look at the top enriched terms for each compound:**
 
 ```{r}
-ora_high %>% 
+ora_moderate %>% 
+  # The 10 enriched terms with the lowest adjusted p-values are shown, ordered by ascending adjusted p-value.
   arrange(Adjusted.P.value, P.value) %>% 
   head(10) %>%
+  # The p-value is log-adjusted
   mutate(log10p = -log10(P.value)) %>% 
+  # Size of the total pathway is separated from the number of genes found in the pathway
   separate(Overlap, 
            sep="/", 
            into=c("Genes_found", "Size"),
@@ -206,7 +213,8 @@ ora_high %>%
   ggplot(aes(y=reorder(Term, log10p))) + 
   geom_col(aes(x=log10p, fill = Size),
            color='black') +
-  ylab('') + xlab('-log10p') + ggtitle("Top ten enriched terms: ") +
+  ylab('') + xlab('-log10p') + ggtitle("Top ten enriched terms") +
+  # Y-axis is labelled with the enriched terms
   scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
   theme_bw() +
   theme(axis.text.y = element_text(size=7))
@@ -243,7 +251,7 @@ You may also want to visualize the top enriched terms for both compounds togethe
 First we select terms to use in the plot (top 10 for each compound):
 
 ```{r}
-top_terms <- c((ora_high %>% head(10))$Term, (ora_low %>% head(10))$Term)
+top_terms <- c((ora_moderate %>% head(10))$Term, (ora_low %>% head(10))$Term)
 top_terms
 ```
 
@@ -252,10 +260,10 @@ top_terms
 Then we bind the results together, making a new variable specifying if the compound is high or low toxicity:
 
 ```{r}
-ora_high$Toxicity <- "High"
+ora_moderate$Toxicity <- "High"
 ora_low$Toxicity <- "Low"
 
-ora_both <- rbind(ora_high, ora_low)
+ora_both <- rbind(ora_moderate, ora_low)
 ora_both
 ```
 
@@ -281,7 +289,7 @@ ora_both %>%
   )
 ```
 
-We can see that the enrichment of terms is greater (in terms of significance and effect size) in the high toxicity compound. For hydroquinone, strong negative regulation of insulin-like growth factor receptor signaling pathway suggests possible interference with growth or survival signaling, perhaps more expected in a high toxicity compound. For TEG on the other hand, smaller odds ratios overall and less significant p-values are consistent with milder or adaptive cellular responses.
+
 
 ***
 
