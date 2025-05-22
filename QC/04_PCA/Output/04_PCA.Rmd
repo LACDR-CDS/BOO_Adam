@@ -150,7 +150,7 @@ var_explained %>%
   theme(axis.text.x = element_text(size = 8))
 
 ```
-The first 10 PCs each capture more than 1 percent of the total variance; after PC 10, a drop in the line is observed. These PCs will be investigated further.
+The first 8 PCs each capture more than 1 percent of the total variance.
 
 ***
 
@@ -162,7 +162,7 @@ By investigating how PCs correlate with known variables, we can assess how much 
 
 ```{r add-pc}
 # The first 10 PCs, that each capture more than 1% of the total variance, are added to the metadata. This will enable us to analyze correlations between the PCs and factors that might influence the data.
-metaData <- cbind(metaData, pcs$x[,1:10])
+metaData <- cbind(metaData, pcs$x[,1:8])
 ```
 
 ***
@@ -200,7 +200,7 @@ heatmap_df <- metaData %>%
 heatmap_df <- apply(heatmap_df, 2, function(x) as.numeric(factor(x)))
 
 # The cor function is used to calculate the pairwise correlations between the PCs and the metadata values saved in heatmap_df. The result is rounded to 2 decimals.
-cxy <- round(cor(pcs$x[,1:10], scale(heatmap_df), 
+cxy <- round(cor(pcs$x[,1:8], scale(heatmap_df), 
                  use = "pairwise.complete.obs"), 2) 
 
 # The correlations are viewed as dataframe.

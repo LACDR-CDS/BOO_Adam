@@ -204,7 +204,7 @@ ora_moderate %>%
   head(10) %>%
   # The p-value is log-adjusted
   mutate(log10p = -log10(P.value)) %>% 
-  # Size of the total pathway is separated from the number of genes found in the pathway
+  # Size of the total pathway is separated from the number of genes found in the pathway, so that the bars can be colored by geneset size
   separate(Overlap, 
            sep="/", 
            into=c("Genes_found", "Size"),
@@ -219,6 +219,15 @@ ora_moderate %>%
   theme_bw() +
   theme(axis.text.y = element_text(size=7))
 ```
+-> find link of these to potential toxicity
+- SRP-dependent cotranslational protein targeting to membrane
+- nonsense-mediated decay enhanced by exon junction complex, nonsense-mediated decay: do not seem to be directly linked to toxicity/ adverse reactions.
+- regulation of expression of SLITs and ROBOs, signaling by ROBO receptors: SLIT/ROBO pathway is involved in cell migration, cell death, angiogenesis. Mainly active during development, but also in tumors.
+- Eukaryotic translation termination
+- Cellular responses to stress: presumably an adverse reaction to triazine
+- Cellular responses to stimuli: presumably a reaction to triazine
+- Sars-CoV-2 infection, Sars-CoV-2-host interactions: Does not seem to be a direct reaction to triazine
+
 
 ```{r}
 ora_low %>% 

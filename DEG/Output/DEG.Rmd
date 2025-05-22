@@ -564,7 +564,7 @@ for(i in unique(metaData$compound_ID)[1:2]) {
 In the first two concentration levels of the low tox compound, the same few genes have the highest differential expression. These genes are:
 - PAEP - Involved in pregnancy
 - MYH11 - Smooth muscle myosin
-- S100A8 - Regulation of cellullar processes such as cell cycle progression and differentiation
+- S100A8 - Regulation of cellular processes such as cell cycle progression and differentiation
 - DCN - Collagen fibril assembly, tumor suppression -> stimulation of autophagy and inflammation
 
 These genes, except maybe for DCN, do not make a lot of sense in a toxicity context.
@@ -576,7 +576,7 @@ In the cells treated with a moderately toxic chemical, the genes with the larges
 - ALDOB - Conversion of fructose-1,6-bisphosphate to glyceraldehyde 3-phosphate and dihydroxyacetone phosphate. Biased expression in the liver.
 - TRMT112 - Macromolecule methylation, macromolecule metabolic processes
 
-These genes, too, do not make a lot of sense in a toxicity context, although activation of DLG1 could be a sign of toxicity (heightened signal transduction, lymphocyte activation).
+These genes, too, do not make a lot of sense in a toxicity context, although activation of DLG1 could be a sign of toxicity (heightened signal transduction, lymphocyte activation). Additionally, downregulation of genes coding for ribiosomal proteins may point to a halt in gene translation.
 ***
 
 ## MA plots
