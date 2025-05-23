@@ -157,14 +157,10 @@ ora_moderate <- enrichr(deg_moderate,
 ora_moderate <- bind_rows(ora_moderate)
 
 # Only the significantly changed pathways are investigated. 
-ora_moderate %>% filter(Adjusted.P.value <= 0.05)
+ora_moderate %>% filter(Adjusted.P.value <= 0.05) %>% 
+  arrange(Adjusted.P.value)
 ```
-The top 5 enriched terms are:
-- Cytoplasmic Translation: translation of mRNA into proteins.  -> could be a reaction to toxicity?
-- Ribosomal Small Subunit Biogenesis: makes sense in combination with cytoplasmic translation; ribosomes are needed for the translation.
-- Cellular response to low-density lipoprotein particle stimulus: triazine is a low-density lipoparticle. This is clearly a response to the chemical, though it does not directly indicate toxicity.
-- Macromolecule biosynthetic process: synthesis of a macromolecule. Does not seem to be directly related to triazine.
-- Gene expression: again, a logical combination with both cytoplasmic translation and ribosomal small subunit biogenesis. Overrepresentation of these three enriched terms could be a reaction to triazine entering the system.
+Two striking terms in the top 10 of this list are cellular responses to stress and cellular responses to stimuli. This clearly indicates an adverse reaction to triazine. In the next analyses, the top 11 will be looked at, since there is almost no difference between the significance of number 10 and number 11.
 
 ***
 
@@ -177,16 +173,24 @@ ora_low <- enrichr(deg_low,
 
 ora_low <- bind_rows(ora_low)
 
-ora_low %>% filter(Adjusted.P.value <= 0.05)
+ora_low %>% filter(Adjusted.P.value <= 0.05) %>% 
+  arrange(Adjusted.P.value)
 ```
-Top 5 enriched terms:
-- Retinoid metabolic process: metabolism of retinoids - derivatives of vitamin A
-- Aminoglycoside antibiotic metabolic process:
-- Daunorubucin metabolic process:
-- Prostaglandin metabolic process:
-- Polyketide metabolic process:
 
-These, and most other high-ranking enriched terms, describe metabolic processes. The reaction of the cell to propylene carbonate might have something to do with metabolism. -> search literature
+A lot of the enriched terms with lowest adjusted P-values have something to do with metabolism. Again, the top 11 enriched terms will be investigated further.
+
+- Steroid hormone biosynthesis:
+- Monocarboxylic acid binding: propylene carbonate does not contain a carboxylic acid group
+- Aldose reductase (NADPH) activity: propylene carbonate does not contain an altidol group
+- Retinoid metabolic process: propylene carbonate bears some similarity to retinol or retinal.
+- Aminoglycoside antibiotic metabolic process: likely not a reaction to propylene carbonate.
+- Daunorubicin metabolic process: metabolism of a chemotherapeutic given in the treatment of cancer. Likely is not a reaction to propylene carbonate.
+- Prostaglandin metabolic process: does not seem to have a direct link to propylene carbonate, the structure does bear some similarity.
+- Polyketide metabolic process: seems like it might have something to do with metabolism of propylene carbonate
+- Doxorubicin metabolic process: doxorubicin is used in cancer treatment. this enriched term is likely not caused by propylene carbonate.
+- Aldo-keto reductase (NADPH) activity: might involve propylene carbonate.
+- Oxidoreductase activity: not likely related to propylene carbonate.
+
 ***
 
 ## Plots
@@ -201,7 +205,7 @@ Using `geom_col`, we can visualize the results for each of the compounds.
 ora_moderate %>% 
   # The 10 enriched terms with the lowest adjusted p-values are shown, ordered by ascending adjusted p-value.
   arrange(Adjusted.P.value, P.value) %>% 
-  head(10) %>%
+  head(11) %>%
   # The p-value is log-adjusted
   mutate(log10p = -log10(P.value)) %>% 
   # Size of the total pathway is separated from the number of genes found in the pathway, so that the bars can be colored by geneset size
@@ -220,19 +224,20 @@ ora_moderate %>%
   theme(axis.text.y = element_text(size=7))
 ```
 -> find link of these to potential toxicity
-- SRP-dependent cotranslational protein targeting to membrane
-- nonsense-mediated decay enhanced by exon junction complex, nonsense-mediated decay: do not seem to be directly linked to toxicity/ adverse reactions.
-- regulation of expression of SLITs and ROBOs, signaling by ROBO receptors: SLIT/ROBO pathway is involved in cell migration, cell death, angiogenesis. Mainly active during development, but also in tumors.
-- Eukaryotic translation termination
+- SRP-dependent cotranslational protein targeting to membrane: Signal transduction during translation
+- nonsense-mediated decay enhanced by exon junction complex, nonsense-mediated decay: do not seem to be directly linked to toxicity/ adverse reactions to triazine.
+- regulation of expression of SLITs and ROBOs, signaling by ROBO receptors: SLIT/ROBO pathway is involved in cell migration, cell death, angiogenesis. Mainly active during development, but also in tumors. Could also point to liver fibrosis.
+- Eukaryotic translation termination: termination of translation upon reaching a stop codon. upregulation could point to more translation, downregulation could point to less translation. could maybe be caused by triazine toxicity.
 - Cellular responses to stress: presumably an adverse reaction to triazine
 - Cellular responses to stimuli: presumably a reaction to triazine
 - Sars-CoV-2 infection, Sars-CoV-2-host interactions: Does not seem to be a direct reaction to triazine
+- Peptide chain elongation: part of translation. presumably related to eukaryotic translation termination -> translation.
 
 
 ```{r}
 ora_low %>% 
   arrange(Adjusted.P.value, P.value) %>% 
-  head(10) %>%
+  head(11) %>%
   mutate(log10p = -log10(P.value)) %>% 
   separate(Overlap, 
            sep="/", 
@@ -248,6 +253,7 @@ ora_low %>%
   theme_bw() +
   theme(axis.text.y = element_text(size=7))
 ```
+These pathways all have something to do with metabolism. From these enriched terms, no clear conclusions can be drawn for a potential adverse reaction to propylene carbonate.
 
 ***
 
@@ -260,7 +266,7 @@ You may also want to visualize the top enriched terms for both compounds togethe
 First we select terms to use in the plot (top 10 for each compound):
 
 ```{r}
-top_terms <- c((ora_moderate %>% head(10))$Term, (ora_low %>% head(10))$Term)
+top_terms <- c((ora_moderate %>% head(11))$Term, (ora_low %>% head(11))$Term)
 top_terms
 ```
 
@@ -298,8 +304,7 @@ ora_both %>%
   )
 ```
 
-
-
+The effect size and significance of enriched terms is greater in the samples treated with the low toxicity compound than in the samples treated with the moderate toxicity compound. This might have to do with the size of the pathways: in the bar plots, the size of the enriched terms of triazine was observed to be around 10 times larger than the size of the enriched terms of propylene carbonate. Activation of few genes belonging to an enriched term in the low toxicity samples will thus lead to a higher odds ratio and significance. 
 ***
 
 # Session Info
